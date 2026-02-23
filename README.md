@@ -1,9 +1,10 @@
 # OpenClaw Work Environment - Turnkey Deployment
 
-**One-command installation** of OpenClaw with proven professional patterns for **macOS and Ubuntu/Debian** work environments.
+**One-command installation** of OpenClaw with proven professional patterns for **macOS, Windows, and Ubuntu/Debian** work environments.
 
 ## 🚀 Quick Start
 
+### macOS / Linux
 ```bash
 git clone https://github.com/KingJostle/openclaw-work-deployment.git
 cd openclaw-work-deployment
@@ -11,24 +12,33 @@ chmod +x install.sh
 ./install.sh
 ```
 
+### Windows (PowerShell as Administrator)
+```powershell
+git clone https://github.com/KingJostle/openclaw-work-deployment.git
+cd openclaw-work-deployment
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\install.ps1
+```
+
 **That's it!** The installer detects your OS and sets everything up. OpenClaw will be running at `http://localhost:18789` with your work environment ready to customize.
 
 ## 📋 What This Installs
 
 ### Core System
-- ✅ **Node.js** (latest LTS via Homebrew on macOS, NodeSource on Linux)
+- ✅ **Node.js** (latest LTS via Homebrew / winget / NodeSource)
 - ✅ **OpenClaw** (latest version, globally installed)
-- ✅ **Auto-start service** (launchd on macOS, systemd on Linux)
+- ✅ **Auto-start service** (launchd / Task Scheduler / systemd)
 - ✅ **Work workspace** (`~/.openclaw-work/workspace`)
 
 ### Platform-Specific
-| Feature | macOS | Linux |
-|---------|-------|-------|
-| Service manager | launchd (LaunchAgent) | systemd |
-| Package manager | Homebrew | apt-get |
-| Shell config | ~/.zshrc | ~/.bashrc |
-| Firewall | Not needed (localhost) | UFW rules |
-| Logs | ~/.openclaw-work/*.log | journalctl |
+| Feature | macOS | Windows | Linux |
+|---------|-------|---------|-------|
+| Installer | `install.sh` | `install.ps1` | `install.sh` |
+| Service manager | launchd (LaunchAgent) | Task Scheduler | systemd |
+| Package manager | Homebrew | winget | apt-get |
+| Shell config | ~/.zshrc | PowerShell $PROFILE | ~/.bashrc |
+| Firewall | Not needed (localhost) | Windows Firewall rule | UFW rules |
+| Logs | ~/.openclaw-work/*.log | ~/.openclaw-work/*.log | journalctl |
 
 ### Proven Patterns (cross-platform)
 - ✅ **Rate limit monitoring** (prevents API timeouts)
@@ -75,6 +85,14 @@ openclaw-work-status     # Check if running
 openclaw-work-restart    # Restart service
 openclaw-work-stop       # Stop service
 openclaw-work-logs       # View real-time logs
+openclaw-work            # Go to workspace directory
+```
+
+### Windows (PowerShell)
+```powershell
+openclaw-work-status     # Check if running
+openclaw-work-restart    # Restart service
+openclaw-work-stop       # Stop service
 openclaw-work            # Go to workspace directory
 ```
 
@@ -144,6 +162,22 @@ launchctl unload ~/Library/LaunchAgents/com.openclaw.work.plist
 launchctl load -w ~/Library/LaunchAgents/com.openclaw.work.plist
 ```
 
+### Windows
+```powershell
+# Check service
+openclaw-work-status
+
+# View scheduled task
+Get-ScheduledTask -TaskName "OpenClaw-Work"
+
+# Manual start for debugging
+openclaw gateway --config="$env:USERPROFILE\.openclaw-work\openclaw.json"
+
+# Restart task
+Stop-ScheduledTask -TaskName "OpenClaw-Work"
+Start-ScheduledTask -TaskName "OpenClaw-Work"
+```
+
 ### Linux
 ```bash
 # Check service
@@ -181,7 +215,8 @@ sudo systemctl restart openclaw-work.service
 
 ### Verify Installation
 ```bash
-./verify-install.sh
+./verify-install.sh          # macOS / Linux
+.\verify-install.ps1         # Windows
 ```
 
 ## 📊 Success Metrics
