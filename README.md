@@ -142,7 +142,7 @@ openclaw-work       # Go to workspace directory
 - Work data stays in work environment (`~/.openclaw-work/`)
 - No personal data contamination
 - Separate service, separate config, separate workspace
-- Complete isolation from any personal OpenClaw setup
+- Complete isolation from other OpenClaw instances
 
 ## 🚨 Troubleshooting
 

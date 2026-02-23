@@ -1,105 +1,73 @@
 #!/bin/bash
-# setup-work-openclaw.sh
-# Sets up work OpenClaw environment using proven personal patterns
+# reset-workspace.sh
+# Resets workspace to default templates from the deployment repo
 
 set -e
 
-WORK_WORKSPACE="${1:-$HOME/.openclaw-work/workspace}"
-PERSONAL_WORKSPACE="$HOME/.openclaw/workspace"
+WORKSPACE_DIR="${1:-$HOME/.openclaw-work/workspace}"
 
-echo "🏢 Setting up work OpenClaw environment..."
-echo "Work workspace: $WORK_WORKSPACE"
-echo "Source patterns: $PERSONAL_WORKSPACE"
+echo "🔄 Resetting workspace to default templates..."
+echo "Workspace: $WORKSPACE_DIR"
 
-# Create work workspace structure
-mkdir -p "$WORK_WORKSPACE"/{memory,scripts,tools}
+if [[ -d "$WORKSPACE_DIR" ]]; then
+    echo ""
+    read -p "⚠️  This will overwrite template files (memory/ is preserved). Continue? (y/N) " confirm
+    if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+        echo "Cancelled."
+        exit 0
+    fi
+fi
 
-# Phase 1: Direct framework transfers
-echo "[1/4] Transferring core framework..."
+# Create structure
+mkdir -p "$WORKSPACE_DIR"/{memory,scripts,tools}
 
-# Rate limit monitoring (proven system)
-cp "$PERSONAL_WORKSPACE/memory/rate-limit-"*.md "$WORK_WORKSPACE/memory/"
-echo "  ✅ Rate limit monitoring system"
+# Find template source (repo root)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# Backup framework (needs path adaptation)
-cp "$PERSONAL_WORKSPACE/openclaw-backup.sh" "$WORK_WORKSPACE/"
-cp "$PERSONAL_WORKSPACE/openclaw-restore-runbook.md" "$WORK_WORKSPACE/"
-echo "  ✅ Backup framework (requires path customization)"
+# Copy core templates
+echo "[1/3] Copying template files..."
+for file in AGENTS.md SOUL.md USER.md IDENTITY.md TOOLS.md MEMORY.md HEARTBEAT.md BOOTSTRAP.md; do
+    if [[ -f "$SCRIPT_DIR/$file" ]]; then
+        cp "$SCRIPT_DIR/$file" "$WORKSPACE_DIR/"
+        echo "  ✅ $file"
+    fi
+done
 
-# Phase 2: Template files with customization needed
-echo "[2/4] Installing work templates..."
+# Copy rate limit system (only if memory dir has no user content)
+echo "[2/3] Checking rate limit monitoring..."
+if [[ -d "$SCRIPT_DIR/memory" ]]; then
+    for rl in "$SCRIPT_DIR"/memory/rate-limit-*.md; do
+        [[ -f "$rl" ]] && cp "$rl" "$WORKSPACE_DIR/memory/"
+    done
+    echo "  ✅ Rate limit monitoring files"
+fi
 
-# Use templates from this directory
-TEMPLATE_DIR="$(dirname "$0")/.."
-cp "$TEMPLATE_DIR"/*.md "$WORK_WORKSPACE/"
-echo "  ✅ Core template files (require customization)"
+# Copy docs
+echo "[3/3] Copying documentation..."
+for doc in SETUP-GUIDE.md TRANSFER-SUMMARY.md; do
+    if [[ -f "$SCRIPT_DIR/$doc" ]]; then
+        cp "$SCRIPT_DIR/$doc" "$WORKSPACE_DIR/"
+    fi
+done
 
-# Phase 3: Initialize memory structure  
-echo "[3/4] Initializing work memory..."
-
-# Create today's memory file
+# Initialize today's memory if it doesn't exist
 TODAY=$(date +%Y-%m-%d)
-cat > "$WORK_WORKSPACE/memory/$TODAY.md" << EOF
-# $TODAY - Work Context
+if [[ ! -f "$WORKSPACE_DIR/memory/$TODAY.md" ]]; then
+    cat > "$WORKSPACE_DIR/memory/$TODAY.md" << EOF
+# $TODAY
 
 ## Setup
-- Work OpenClaw environment initialized
-- Templates installed, need customization
-- Rate limit monitoring system active
-
-## Next Steps
-- Complete BOOTSTRAP.md checklist
-- Populate USER.md with actual work context
-- Configure work-specific authentication
-- Test core workflows
-
+- Workspace initialized/reset from templates
+- Customize USER.md, IDENTITY.md, MEMORY.md, TOOLS.md, HEARTBEAT.md
+- Follow BOOTSTRAP.md checklist
 EOF
-echo "  ✅ Initial memory file: $TODAY.md"
-
-# Phase 4: Create customization checklist
-echo "[4/4] Creating setup checklist..."
-
-cat > "$WORK_WORKSPACE/SETUP-STATUS.md" << EOF
-# Work OpenClaw Setup Status
-
-## Framework Transfer: ✅ Complete
-- [x] Rate limit monitoring system
-- [x] Backup framework  
-- [x] Core template files
-- [x] Memory structure
-
-## Customization Required: 🔄 In Progress
-- [ ] USER.md - Add your company context
-- [ ] IDENTITY.md - Choose work assistant persona
-- [ ] TOOLS.md - Add work infrastructure  
-- [ ] MEMORY.md - Add stakeholder context
-- [ ] HEARTBEAT.md - Set work hours/monitoring
-
-## Security Setup: ⏸️ Pending
-- [ ] Work-specific credential storage
-- [ ] Data isolation verification
-- [ ] Backup location for work environment
-- [ ] Access control review
-
-## Testing: ⏸️ Pending  
-- [ ] Session startup sequence
-- [ ] Heartbeat monitoring (work hours)
-- [ ] Rate limit system
-- [ ] Communication workflows
-
-## Next Actions
-1. Follow BOOTSTRAP.md checklist
-2. Complete customization section
-3. Set up work-specific authentication
-4. Test with actual work scenarios
-
-EOF
+    echo "  ✅ Created memory/$TODAY.md"
+fi
 
 echo ""
-echo "🎯 Setup complete! Next steps:"
-echo "1. cd $WORK_WORKSPACE"
-echo "2. Follow BOOTSTRAP.md checklist"
-echo "3. Customize template files for your work environment"
-echo "4. Review SETUP-STATUS.md for progress tracking"
+echo "✅ Workspace reset complete!"
 echo ""
-echo "💡 Your proven patterns are preserved, work context starts fresh."
+echo "Next steps:"
+echo "  1. cd $WORKSPACE_DIR"
+echo "  2. Follow BOOTSTRAP.md checklist"
+echo "  3. Customize template files for your environment"

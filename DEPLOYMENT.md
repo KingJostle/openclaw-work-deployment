@@ -15,7 +15,7 @@ openclaw-work-deployment/
 ├── quick-install.sh            # One-command wrapper ⭐
 ├── verify-install.sh           # Post-install verification ⭐
 │
-├── Work Templates (from your patterns)
+├── Templates
 ├── AGENTS.md                   # Session startup patterns
 ├── SOUL.md                     # Professional persona
 ├── USER.md                     # Work context template
@@ -40,9 +40,7 @@ openclaw-work-deployment/
 
 ## GitHub Repository Setup
 
-1. **Create repository:** `KingJostle/openclaw-work-deployment`
-2. **Upload this entire `openclaw-work-deployment/` folder**
-3. **Set repository to public** (no sensitive data included)
+Repository: `KingJostle/openclaw-work-deployment` (public, no sensitive data)
 
 ## Install Commands (any platform)
 
@@ -61,7 +59,7 @@ The installer auto-detects macOS vs Linux and uses the appropriate service manag
 1. **System setup** (Node.js, dependencies, OpenClaw)
 2. **Service creation** (launchd on macOS, systemd on Linux)
 3. **Workspace creation** (`~/.openclaw-work/workspace`)
-4. **Template deployment** (your proven patterns)
+4. **Template deployment** (proven workspace patterns)
 5. **Configuration** (port 18789, firewall rules on Linux)
 6. **Shell aliases** (platform-appropriate convenience commands)
 
@@ -86,7 +84,7 @@ The installer auto-detects macOS vs Linux and uses the appropriate service manag
 - Firewall rules (Linux/UFW only)
 
 ### Work Environment
-- Complete workspace with your proven patterns
+- Complete workspace with proven patterns
 - Rate limit monitoring system
 - Professional assistant persona
 - Work-focused templates
@@ -100,7 +98,7 @@ The installer auto-detects macOS vs Linux and uses the appropriate service manag
 - No personal credentials
 - Professional communication patterns
 - Work-appropriate monitoring
-- Complete isolation from personal setup
+- Complete isolation from other OpenClaw instances
 
 ❌ **Excluded (by design):**
 - Personal memories and planning

@@ -23,8 +23,8 @@
 - [ ] Test key workflows (email, calendar, document access)
 
 ### 4. Set Up Backup System
-- [ ] Copy backup scripts from personal setup
-- [ ] Adapt backup locations for work environment
+- [ ] Set up backup scripts for your workspace
+- [ ] Choose appropriate backup locations
 - [ ] Test backup and restore procedures
 - [ ] Schedule regular backups (if appropriate)
 
@@ -68,6 +68,6 @@
 
 ---
 
-**Remember:** This template is based on proven patterns from a personal OpenClaw setup. Adapt everything for your specific work environment, company culture, and professional needs.
+**Remember:** These templates are based on proven daily-driver OpenClaw patterns. Adapt everything for your specific environment and needs.
 
 **Delete this file** once setup is complete.

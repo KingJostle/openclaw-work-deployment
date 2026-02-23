@@ -37,7 +37,7 @@ touch MEMORY.md         # Work relationships & project history
 ```
 
 ### Communication Style Adaptation
-From your personal communication preferences, extract work-appropriate patterns:
+Define your professional communication patterns:
 - **Email structure** → Hi [Name], / Cheers, [Name] patterns
 - **Brevity preference** → Direct, no fluff approach
 - **Professional tone** → Concise, fact-first communication
@@ -46,7 +46,7 @@ From your personal communication preferences, extract work-appropriate patterns:
 ## Phase 3: Skills & Tools Integration
 
 ### Work-Relevant Skills Transfer
-From your personal setup, identify work-applicable skills:
+Identify relevant skills for your workflow:
 - **Email workflows** (adapted for work accounts)
 - **Calendar management** (work calendars)
 - **Document processing** (work-appropriate tools)
