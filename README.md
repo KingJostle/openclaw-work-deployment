@@ -158,8 +158,8 @@ tail -f ~/.openclaw/openclaw.stderr.log
 openclaw gateway --config=~/.openclaw/openclaw.json
 
 # Reload LaunchAgent
-launchctl unload ~/Library/LaunchAgents/com.openclaw.work.plist
-launchctl load -w ~/Library/LaunchAgents/com.openclaw.work.plist
+launchctl unload ~/Library/LaunchAgents/ai.openclaw.gateway.plist
+launchctl load -w ~/Library/LaunchAgents/ai.openclaw.gateway.plist
 ```
 
 ### Windows

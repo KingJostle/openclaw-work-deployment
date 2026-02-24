@@ -66,7 +66,7 @@ The installer auto-detects macOS vs Linux and uses the appropriate service manag
 ## Post-Install
 
 1. **Access:** `http://localhost:18789`
-2. **Workspace:** `openclaw-work` command or `cd ~/.openclaw/workspace`
+2. **Workspace:** `openclaw-ws` command or `cd ~/.openclaw/workspace`
 3. **Customize:** Follow BOOTSTRAP.md checklist
 4. **Service:** Auto-starts on boot/login
 
@@ -78,8 +78,8 @@ The installer auto-detects macOS vs Linux and uses the appropriate service manag
 - System dependencies (build tools, git, etc.)
 
 ### Services
-- **macOS:** `com.openclaw.work` (LaunchAgent) - auto-start on login
-- **Linux:** `openclaw-work.service` (systemd) - auto-start on boot
+- **macOS:** `ai.openclaw.gateway` (LaunchAgent) - auto-start on login
+- **Linux:** `openclaw.service` (systemd) - auto-start on boot
 - Port 18789 (configurable)
 - Firewall rules (Linux/UFW only)
 
@@ -119,10 +119,10 @@ curl -s http://localhost:18789 > /dev/null && echo "✅ OpenClaw accessible"
 ls -la ~/.openclaw/workspace/
 
 # Service status (macOS)
-launchctl list | grep com.openclaw.work
+launchctl list | grep ai.openclaw.gateway
 
 # Service status (Linux)
-systemctl status openclaw-work.service
+systemctl status openclaw.service
 ```
 
 ## Ready to Deploy!

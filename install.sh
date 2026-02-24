@@ -2,7 +2,7 @@
 # OpenClaw Environment - Turnkey Installation
 # Supports macOS and Ubuntu/Debian
 
-set -e
+set -euo pipefail
 
 # Configuration
 OPENCLAW_PORT="18789"
@@ -122,8 +122,12 @@ setup_workspace() {
 
     for file in AGENTS.md SOUL.md USER.md IDENTITY.md TOOLS.md MEMORY.md HEARTBEAT.md BOOTSTRAP.md; do
         if [[ -f "$SCRIPT_DIR/$file" ]]; then
-            cp "$SCRIPT_DIR/$file" "$WORKSPACE_DIR/"
-            log "  ✅ $file"
+            if [[ -f "$WORKSPACE_DIR/$file" ]]; then
+                log "  ⚠️  $file already exists — skipping to preserve customizations"
+            else
+                cp "$SCRIPT_DIR/$file" "$WORKSPACE_DIR/"
+                log "  ✅ $file"
+            fi
         fi
     done
 
@@ -152,7 +156,12 @@ configure_openclaw() {
 
     mkdir -p "$WORK_HOME/.openclaw"
 
-    cat > "$WORK_HOME/.openclaw/openclaw.json" << EOF
+    # Don't overwrite existing config — user may have customized it
+    if [[ -f "$WORK_HOME/.openclaw/openclaw.json" ]]; then
+        log "⚠️  openclaw.json already exists — skipping to preserve your configuration"
+        log "   To reset, delete ~/.openclaw/openclaw.json and re-run this script"
+    else
+        cat > "$WORK_HOME/.openclaw/openclaw.json" << EOF
 {
   "gateway": {
     "port": $OPENCLAW_PORT,
@@ -165,8 +174,8 @@ configure_openclaw() {
   }
 }
 EOF
-
-    log "✅ OpenClaw configured for port $OPENCLAW_PORT"
+        log "✅ OpenClaw configured for port $OPENCLAW_PORT"
+    fi
 }
 
 # ── Linux: systemd ──────────────────────────────────────────────────
