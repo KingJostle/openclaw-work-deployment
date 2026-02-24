@@ -58,7 +58,7 @@ The installer auto-detects macOS vs Linux and uses the appropriate service manag
 
 1. **System setup** (Node.js, dependencies, OpenClaw)
 2. **Service creation** (launchd on macOS, systemd on Linux)
-3. **Workspace creation** (`~/.openclaw-work/workspace`)
+3. **Workspace creation** (`~/.openclaw/workspace`)
 4. **Template deployment** (proven workspace patterns)
 5. **Configuration** (port 18789, firewall rules on Linux)
 6. **Shell aliases** (platform-appropriate convenience commands)
@@ -66,7 +66,7 @@ The installer auto-detects macOS vs Linux and uses the appropriate service manag
 ## Post-Install
 
 1. **Access:** `http://localhost:18789`
-2. **Workspace:** `openclaw-work` command or `cd ~/.openclaw-work/workspace`
+2. **Workspace:** `openclaw-work` command or `cd ~/.openclaw/workspace`
 3. **Customize:** Follow BOOTSTRAP.md checklist
 4. **Service:** Auto-starts on boot/login
 
@@ -116,7 +116,7 @@ Run `./verify-install.sh` or manually:
 curl -s http://localhost:18789 > /dev/null && echo "✅ OpenClaw accessible"
 
 # Workspace check
-ls -la ~/.openclaw-work/workspace/
+ls -la ~/.openclaw/workspace/
 
 # Service status (macOS)
 launchctl list | grep com.openclaw.work
