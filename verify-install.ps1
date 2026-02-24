@@ -1,7 +1,7 @@
 # OpenClaw Work Environment - Installation Verification (Windows)
 
 $OPENCLAW_PORT = 18789
-$WORKSPACE_DIR = "$env:USERPROFILE\.openclaw-work\workspace"
+$WORKSPACE_DIR = "$env:USERPROFILE\.openclaw\workspace"
 $script:Errors = 0
 
 function Success($msg) { Write-Host "✅ $msg" -ForegroundColor Green }
@@ -41,7 +41,7 @@ if (Test-Path $WORKSPACE_DIR) {
 } else { Err "Workspace not found: $WORKSPACE_DIR" }
 
 Info "Checking config..."
-$cfg = "$env:USERPROFILE\.openclaw-work\openclaw.json"
+$cfg = "$env:USERPROFILE\.openclaw\openclaw.json"
 if (Test-Path $cfg) { Success "Config file exists" } else { Err "Config missing: $cfg" }
 
 Write-Host ""
