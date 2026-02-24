@@ -4,7 +4,7 @@
 
 set -e
 
-WORKSPACE_DIR="${1:-$HOME/.openclaw-work/workspace}"
+WORKSPACE_DIR="${1:-$HOME/.openclaw/workspace}"
 
 echo "🔄 Resetting workspace to default templates..."
 echo "Workspace: $WORKSPACE_DIR"
