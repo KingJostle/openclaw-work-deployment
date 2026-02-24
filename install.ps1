@@ -6,8 +6,8 @@ $ErrorActionPreference = "Stop"
 # Configuration
 $OPENCLAW_PORT = 18789
 $WORK_HOME = $env:USERPROFILE
-$WORKSPACE_DIR = "$WORK_HOME\.openclaw-work\workspace"
-$CONFIG_DIR = "$WORK_HOME\.openclaw-work"
+$WORKSPACE_DIR = "$WORK_HOME\.openclaw\workspace"
+$CONFIG_DIR = "$WORK_HOME\.openclaw"
 $INSTALL_LOG = "$WORK_HOME\openclaw-work-install.log"
 
 function Log($msg) {
