@@ -8,7 +8,7 @@ set -e
 OPENCLAW_PORT="18789"
 WORK_USER="$(whoami)"
 WORK_HOME="$HOME"
-WORKSPACE_DIR="$WORK_HOME/.openclaw-work/workspace"
+WORKSPACE_DIR="$WORK_HOME/.openclaw/workspace"
 INSTALL_LOG="$HOME/openclaw-work-install.log"
 
 # Colors for output
@@ -150,9 +150,9 @@ setup_workspace() {
 configure_openclaw() {
     log "⚙️  Configuring OpenClaw for work environment..."
 
-    mkdir -p "$WORK_HOME/.openclaw-work"
+    mkdir -p "$WORK_HOME/.openclaw"
 
-    cat > "$WORK_HOME/.openclaw-work/openclaw.json" << EOF
+    cat > "$WORK_HOME/.openclaw/openclaw.json" << EOF
 {
   "gateway": {
     "port": $OPENCLAW_PORT,
@@ -187,7 +187,7 @@ RestartSec=5
 User=$WORK_USER
 Environment=NODE_ENV=production
 WorkingDirectory=$WORKSPACE_DIR
-ExecStart=$(which openclaw) gateway --config=$WORK_HOME/.openclaw-work/openclaw.json
+ExecStart=$(which openclaw) gateway --config=$WORK_HOME/.openclaw/openclaw.json
 StandardOutput=journal
 StandardError=journal
 
@@ -250,7 +250,7 @@ create_launchd_agent() {
         <string>$NODE_BIN</string>
         <string>$OPENCLAW_BIN</string>
         <string>gateway</string>
-        <string>--config=$WORK_HOME/.openclaw-work/openclaw.json</string>
+        <string>--config=$WORK_HOME/.openclaw/openclaw.json</string>
     </array>
     <key>WorkingDirectory</key>
     <string>$WORKSPACE_DIR</string>
@@ -259,9 +259,9 @@ create_launchd_agent() {
     <key>KeepAlive</key>
     <true/>
     <key>StandardOutPath</key>
-    <string>$WORK_HOME/.openclaw-work/openclaw-work.stdout.log</string>
+    <string>$WORK_HOME/.openclaw/openclaw-work.stdout.log</string>
     <key>StandardErrorPath</key>
-    <string>$WORK_HOME/.openclaw-work/openclaw-work.stderr.log</string>
+    <string>$WORK_HOME/.openclaw/openclaw-work.stderr.log</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>NODE_ENV</key>
@@ -288,7 +288,7 @@ start_service_macos() {
     if curl -s --connect-timeout 3 "http://localhost:$OPENCLAW_PORT" > /dev/null 2>&1; then
         log "✅ OpenClaw work service is running"
     else
-        warn "Service may still be starting. Check logs at: ~/.openclaw-work/openclaw-work.stderr.log"
+        warn "Service may still be starting. Check logs at: ~/.openclaw/openclaw-work.stderr.log"
     fi
 }
 
@@ -314,8 +314,8 @@ create_shortcuts() {
         cat >> "$SHELL_RC" << 'EOF'
 
 # OpenClaw Work Environment
-alias openclaw-work="cd ~/.openclaw-work/workspace"
-alias openclaw-work-logs="tail -f ~/.openclaw-work/openclaw-work.stderr.log"
+alias openclaw-work="cd ~/.openclaw/workspace"
+alias openclaw-work-logs="tail -f ~/.openclaw/openclaw-work.stderr.log"
 alias openclaw-work-status="curl -sf http://localhost:18789 > /dev/null && echo '✅ Running' || echo '❌ Not running'"
 alias openclaw-work-restart="launchctl unload ~/Library/LaunchAgents/com.openclaw.work.plist 2>/dev/null; launchctl load -w ~/Library/LaunchAgents/com.openclaw.work.plist && echo '✅ Restarted'"
 alias openclaw-work-stop="launchctl unload ~/Library/LaunchAgents/com.openclaw.work.plist 2>/dev/null && echo '✅ Stopped'"
@@ -324,7 +324,7 @@ EOF
         cat >> "$SHELL_RC" << 'EOF'
 
 # OpenClaw Work Environment
-alias openclaw-work="cd ~/.openclaw-work/workspace"
+alias openclaw-work="cd ~/.openclaw/workspace"
 alias openclaw-logs="journalctl -u openclaw-work.service -f"
 alias openclaw-status="systemctl status openclaw-work.service"
 alias openclaw-restart="sudo systemctl restart openclaw-work.service"
