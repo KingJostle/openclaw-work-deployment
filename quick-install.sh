@@ -35,7 +35,7 @@ sleep 5
 echo ""
 echo -e "${BLUE}📚 Quick Start Guide:${NC}"
 echo "1. Open: http://localhost:18789"
-echo "2. Navigate to workspace: openclaw-work"
+echo "2. Navigate to workspace: openclaw-ws"
 echo "3. Follow BOOTSTRAP.md to customize for your work"
 echo ""
 echo -e "${GREEN}Installation complete! 🎉${NC}"

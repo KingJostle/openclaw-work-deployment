@@ -1,5 +1,5 @@
 #!/bin/bash
-# OpenClaw Work Environment - Turnkey Installation
+# OpenClaw Environment - Turnkey Installation
 # Supports macOS and Ubuntu/Debian
 
 set -e
@@ -9,7 +9,7 @@ OPENCLAW_PORT="18789"
 WORK_USER="$(whoami)"
 WORK_HOME="$HOME"
 WORKSPACE_DIR="$WORK_HOME/.openclaw/workspace"
-INSTALL_LOG="$HOME/openclaw-work-install.log"
+INSTALL_LOG="$HOME/openclaw-install.log"
 
 # Colors for output
 RED='\033[0;31m'
@@ -174,9 +174,9 @@ EOF
 create_systemd_service() {
     log "🔄 Creating systemd service for auto-start..."
 
-    sudo tee /etc/systemd/system/openclaw-work.service > /dev/null << EOF
+    sudo tee /etc/systemd/system/openclaw.service > /dev/null << EOF
 [Unit]
-Description=OpenClaw Work Environment
+Description=OpenClaw Environment
 After=network.target
 StartLimitIntervalSec=0
 
@@ -196,14 +196,14 @@ WantedBy=multi-user.target
 EOF
 
     sudo systemctl daemon-reload
-    sudo systemctl enable openclaw-work.service
+    sudo systemctl enable openclaw.service
     log "✅ Systemd service created and enabled"
 }
 
 setup_firewall_linux() {
     log "🔥 Configuring firewall for OpenClaw..."
     if command -v ufw &> /dev/null && sudo ufw status | grep -q "Status: active"; then
-        sudo ufw allow $OPENCLAW_PORT/tcp comment "OpenClaw Work"
+        sudo ufw allow $OPENCLAW_PORT/tcp comment "OpenClaw"
         log "✅ Firewall rule added for port $OPENCLAW_PORT"
     else
         warn "UFW not active or installed - firewall not configured"
@@ -212,12 +212,12 @@ setup_firewall_linux() {
 
 start_service_linux() {
     log "🚀 Starting OpenClaw work service..."
-    sudo systemctl start openclaw-work.service
+    sudo systemctl start openclaw.service
     sleep 3
-    if systemctl is-active --quiet openclaw-work.service; then
+    if systemctl is-active --quiet openclaw.service; then
         log "✅ OpenClaw work service is running"
     else
-        warn "Service may not have started properly. Check: journalctl -u openclaw-work.service"
+        warn "Service may not have started properly. Check: journalctl -u openclaw.service"
     fi
 }
 
@@ -227,7 +227,7 @@ create_launchd_agent() {
     log "🔄 Creating LaunchAgent for auto-start..."
 
     local PLIST_DIR="$WORK_HOME/Library/LaunchAgents"
-    local PLIST_NAME="com.openclaw.work.plist"
+    local PLIST_NAME="ai.openclaw.gateway.plist"
     local PLIST_PATH="$PLIST_DIR/$PLIST_NAME"
     local OPENCLAW_BIN
     local NODE_BIN
@@ -244,7 +244,7 @@ create_launchd_agent() {
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.openclaw.work</string>
+    <string>ai.openclaw.gateway</string>
     <key>ProgramArguments</key>
     <array>
         <string>$NODE_BIN</string>
@@ -259,9 +259,9 @@ create_launchd_agent() {
     <key>KeepAlive</key>
     <true/>
     <key>StandardOutPath</key>
-    <string>$WORK_HOME/.openclaw/openclaw-work.stdout.log</string>
+    <string>$WORK_HOME/.openclaw/openclaw.stdout.log</string>
     <key>StandardErrorPath</key>
-    <string>$WORK_HOME/.openclaw/openclaw-work.stderr.log</string>
+    <string>$WORK_HOME/.openclaw/openclaw.stderr.log</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>NODE_ENV</key>
@@ -278,7 +278,7 @@ EOF
 
 start_service_macos() {
     log "🚀 Starting OpenClaw work service..."
-    local PLIST_PATH="$WORK_HOME/Library/LaunchAgents/com.openclaw.work.plist"
+    local PLIST_PATH="$WORK_HOME/Library/LaunchAgents/ai.openclaw.gateway.plist"
 
     # Unload first if already loaded (ignore errors)
     launchctl unload "$PLIST_PATH" 2>/dev/null || true
@@ -288,7 +288,7 @@ start_service_macos() {
     if curl -s --connect-timeout 3 "http://localhost:$OPENCLAW_PORT" > /dev/null 2>&1; then
         log "✅ OpenClaw work service is running"
     else
-        warn "Service may still be starting. Check logs at: ~/.openclaw/openclaw-work.stderr.log"
+        warn "Service may still be starting. Check logs at: ~/.openclaw/openclaw.stderr.log"
     fi
 }
 
@@ -305,7 +305,7 @@ create_shortcuts() {
     fi
 
     # Avoid duplicate entries
-    if grep -q "# OpenClaw Work Environment" "$SHELL_RC" 2>/dev/null; then
+    if grep -q "# OpenClaw Environment" "$SHELL_RC" 2>/dev/null; then
         log "Shortcuts already present in $SHELL_RC, skipping"
         return 0
     fi
@@ -313,37 +313,37 @@ create_shortcuts() {
     if [[ "$OS" == "macos" ]]; then
         cat >> "$SHELL_RC" << 'EOF'
 
-# OpenClaw Work Environment
-alias openclaw-work="cd ~/.openclaw/workspace"
-alias openclaw-work-logs="tail -f ~/.openclaw/openclaw-work.stderr.log"
-alias openclaw-work-status="curl -sf http://localhost:18789 > /dev/null && echo '✅ Running' || echo '❌ Not running'"
-alias openclaw-work-restart="launchctl unload ~/Library/LaunchAgents/com.openclaw.work.plist 2>/dev/null; launchctl load -w ~/Library/LaunchAgents/com.openclaw.work.plist && echo '✅ Restarted'"
-alias openclaw-work-stop="launchctl unload ~/Library/LaunchAgents/com.openclaw.work.plist 2>/dev/null && echo '✅ Stopped'"
+# OpenClaw Environment
+alias openclaw-ws="cd ~/.openclaw/workspace"
+alias openclaw-logs="tail -f ~/.openclaw/openclaw.stderr.log"
+alias openclaw-status="curl -sf http://localhost:18789 > /dev/null && echo '✅ Running' || echo '❌ Not running'"
+alias openclaw-restart="launchctl unload ~/Library/LaunchAgents/ai.openclaw.gateway.plist 2>/dev/null; launchctl load -w ~/Library/LaunchAgents/ai.openclaw.gateway.plist && echo '✅ Restarted'"
+alias openclaw-stop="launchctl unload ~/Library/LaunchAgents/ai.openclaw.gateway.plist 2>/dev/null && echo '✅ Stopped'"
 EOF
     else
         cat >> "$SHELL_RC" << 'EOF'
 
-# OpenClaw Work Environment
-alias openclaw-work="cd ~/.openclaw/workspace"
-alias openclaw-logs="journalctl -u openclaw-work.service -f"
-alias openclaw-status="systemctl status openclaw-work.service"
-alias openclaw-restart="sudo systemctl restart openclaw-work.service"
+# OpenClaw Environment
+alias openclaw-ws="cd ~/.openclaw/workspace"
+alias openclaw-logs="journalctl -u openclaw.service -f"
+alias openclaw-status="systemctl status openclaw.service"
+alias openclaw-restart="sudo systemctl restart openclaw.service"
 EOF
 
         # Desktop shortcut for GUI environments
         if [[ -n "$DISPLAY" ]] && [[ -d "$HOME/Desktop" ]]; then
-            cat > "$HOME/Desktop/OpenClaw-Work.desktop" << EOF
+            cat > "$HOME/Desktop/OpenClaw.desktop" << EOF
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=OpenClaw Work
-Comment=Access OpenClaw Work Environment
+Name=OpenClaw
+Comment=Access OpenClaw Environment
 Exec=xdg-open http://localhost:$OPENCLAW_PORT
 Icon=applications-internet
 Terminal=false
 Categories=Development;
 EOF
-            chmod +x "$HOME/Desktop/OpenClaw-Work.desktop"
+            chmod +x "$HOME/Desktop/OpenClaw.desktop"
             log "✅ Desktop shortcut created"
         fi
     fi
@@ -363,22 +363,22 @@ final_setup_instructions() {
     echo "   $WORKSPACE_DIR"
     echo ""
     echo -e "${BLUE}⚙️  Complete setup by:${NC}"
-    echo "   1. Opening your workspace: openclaw-work"
+    echo "   1. Opening your workspace: openclaw-ws"
     echo "   2. Following the BOOTSTRAP.md checklist"
     echo "   3. Customizing USER.md, IDENTITY.md, etc. for your work context"
     echo ""
     echo -e "${BLUE}🔧 Useful commands:${NC}"
     if [[ "$OS" == "macos" ]]; then
-        echo "   openclaw-work-status     # Check if running"
-        echo "   openclaw-work-logs       # View real-time logs"
-        echo "   openclaw-work-restart    # Restart service"
-        echo "   openclaw-work-stop       # Stop service"
-        echo "   openclaw-work            # Go to workspace"
+        echo "   openclaw-status     # Check if running"
+        echo "   openclaw-logs       # View real-time logs"
+        echo "   openclaw-restart    # Restart service"
+        echo "   openclaw-stop       # Stop service"
+        echo "   openclaw-ws            # Go to workspace"
     else
         echo "   openclaw-status     # Check service status"
         echo "   openclaw-logs       # View real-time logs"
         echo "   openclaw-restart    # Restart service"
-        echo "   openclaw-work       # Go to workspace"
+        echo "   openclaw-ws       # Go to workspace"
     fi
     echo ""
     echo -e "${BLUE}📝 Installation log saved to:${NC} $INSTALL_LOG"

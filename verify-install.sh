@@ -47,10 +47,10 @@ check_openclaw() {
 check_service() {
     info "Checking OpenClaw work service..."
     if [[ "$OS" == "macos" ]]; then
-        local PLIST="$HOME/Library/LaunchAgents/com.openclaw.work.plist"
+        local PLIST="$HOME/Library/LaunchAgents/ai.openclaw.gateway.plist"
         if [[ -f "$PLIST" ]]; then
             success "LaunchAgent plist exists"
-            if launchctl list | grep -q "com.openclaw.work"; then
+            if launchctl list | grep -q "ai.openclaw.gateway"; then
                 success "LaunchAgent is loaded"
             else
                 warning "LaunchAgent exists but is not loaded"
@@ -59,9 +59,9 @@ check_service() {
             error "LaunchAgent plist not found"
         fi
     else
-        if systemctl is-enabled --quiet openclaw-work.service 2>/dev/null; then
+        if systemctl is-enabled --quiet openclaw.service 2>/dev/null; then
             success "Service is enabled (will start on boot)"
-            if systemctl is-active --quiet openclaw-work.service; then
+            if systemctl is-active --quiet openclaw.service; then
                 success "Service is running"
             else
                 warning "Service is enabled but not currently running"
@@ -126,7 +126,7 @@ check_shortcuts() {
     else
         SHELL_RC="$HOME/.bashrc"
     fi
-    if grep -q "openclaw-work" "$SHELL_RC" 2>/dev/null; then
+    if grep -q "openclaw-status" "$SHELL_RC" 2>/dev/null; then
         success "Shell aliases installed in $(basename "$SHELL_RC")"
     else
         warning "Shell aliases not found (may need to restart shell)"
@@ -143,7 +143,7 @@ show_status() {
         echo ""
         echo -e "${BLUE}Next steps:${NC}"
         echo "1. Visit: http://localhost:$OPENCLAW_PORT"
-        echo "2. Go to workspace: openclaw-work (or cd $WORKSPACE_DIR)"
+        echo "2. Go to workspace: openclaw-ws (or cd $WORKSPACE_DIR)"
         echo "3. Follow BOOTSTRAP.md checklist"
         echo "4. Customize USER.md, IDENTITY.md for your work context"
     else
@@ -151,12 +151,12 @@ show_status() {
         echo ""
         echo -e "${YELLOW}Common fixes:${NC}"
         if [[ "$OS" == "macos" ]]; then
-            echo "• Service issues: openclaw-work-restart"
-            echo "• View logs: openclaw-work-logs"
+            echo "• Service issues: openclaw-restart"
+            echo "• View logs: openclaw-logs"
             echo "• Manual start: openclaw gateway --config=~/.openclaw/openclaw.json"
         else
-            echo "• Service issues: sudo systemctl restart openclaw-work.service"
-            echo "• View logs: journalctl -u openclaw-work.service -f"
+            echo "• Service issues: sudo systemctl restart openclaw.service"
+            echo "• View logs: journalctl -u openclaw.service -f"
         fi
         echo "• Port conflicts: edit ~/.openclaw/openclaw.json"
         echo "• Missing files: re-run ./install.sh"

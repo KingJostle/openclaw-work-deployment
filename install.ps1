@@ -1,4 +1,4 @@
-# OpenClaw Work Environment - Turnkey Installation for Windows
+# OpenClaw Environment - Turnkey Installation for Windows
 # Run in PowerShell (as Administrator recommended for scheduled task)
 
 $ErrorActionPreference = "Stop"
@@ -8,7 +8,7 @@ $OPENCLAW_PORT = 18789
 $WORK_HOME = $env:USERPROFILE
 $WORKSPACE_DIR = "$WORK_HOME\.openclaw\workspace"
 $CONFIG_DIR = "$WORK_HOME\.openclaw"
-$INSTALL_LOG = "$WORK_HOME\openclaw-work-install.log"
+$INSTALL_LOG = "$WORK_HOME\openclaw-install.log"
 
 function Log($msg) {
     $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -180,7 +180,7 @@ function Create-ScheduledTask {
         return
     }
 
-    $taskName = "OpenClaw-Work"
+    $taskName = "OpenClaw"
 
     # Remove existing task if present
     Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
@@ -204,7 +204,7 @@ function Create-ScheduledTask {
         -Action $action `
         -Trigger $trigger `
         -Settings $settings `
-        -Description "OpenClaw Work Environment" `
+        -Description "OpenClaw Environment" `
         -RunLevel Highest `
         -ErrorAction Stop | Out-Null
 
@@ -216,7 +216,7 @@ function Create-ScheduledTask {
 function Setup-Firewall {
     Log "🔥 Configuring firewall..."
 
-    $ruleName = "OpenClaw Work (Port $OPENCLAW_PORT)"
+    $ruleName = "OpenClaw (Port $OPENCLAW_PORT)"
     $existing = Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue
 
     if (-not $existing) {
@@ -241,7 +241,7 @@ function Setup-Firewall {
 function Start-OpenClaw {
     Log "🚀 Starting OpenClaw..."
 
-    $taskName = "OpenClaw-Work"
+    $taskName = "OpenClaw"
     try {
         Start-ScheduledTask -TaskName $taskName
         Start-Sleep -Seconds 3
@@ -271,7 +271,7 @@ function Create-Shortcuts {
         New-Item -ItemType File -Path $PROFILE -Force | Out-Null
     }
 
-    $marker = "# OpenClaw Work Environment"
+    $marker = "# OpenClaw Environment"
     $profileContent = Get-Content $PROFILE -Raw -ErrorAction SilentlyContinue
     if ($profileContent -and $profileContent.Contains($marker)) {
         Log "Shortcuts already present in PowerShell profile, skipping"
@@ -281,8 +281,8 @@ function Create-Shortcuts {
     $aliases = @"
 
 $marker
-function openclaw-work { Set-Location "$WORKSPACE_DIR" }
-function openclaw-work-status {
+function openclaw-ws { Set-Location "$WORKSPACE_DIR" }
+function openclaw-status {
     try {
         `$null = Invoke-WebRequest -Uri "http://localhost:$OPENCLAW_PORT" -UseBasicParsing -TimeoutSec 3
         Write-Host "✅ Running" -ForegroundColor Green
@@ -290,14 +290,14 @@ function openclaw-work-status {
         Write-Host "❌ Not running" -ForegroundColor Red
     }
 }
-function openclaw-work-restart {
-    Stop-ScheduledTask -TaskName "OpenClaw-Work" -ErrorAction SilentlyContinue
+function openclaw-restart {
+    Stop-ScheduledTask -TaskName "OpenClaw" -ErrorAction SilentlyContinue
     Start-Sleep -Seconds 2
-    Start-ScheduledTask -TaskName "OpenClaw-Work"
+    Start-ScheduledTask -TaskName "OpenClaw"
     Write-Host "✅ Restarted" -ForegroundColor Green
 }
-function openclaw-work-stop {
-    Stop-ScheduledTask -TaskName "OpenClaw-Work" -ErrorAction SilentlyContinue
+function openclaw-stop {
+    Stop-ScheduledTask -TaskName "OpenClaw" -ErrorAction SilentlyContinue
     Write-Host "✅ Stopped" -ForegroundColor Green
 }
 "@
@@ -319,15 +319,15 @@ function Show-Instructions {
     Write-Host ""
     Write-Host "⚙️  Complete setup by:" -ForegroundColor Cyan
     Write-Host "   1. Open a new PowerShell window (to load aliases)"
-    Write-Host "   2. Run: openclaw-work"
+    Write-Host "   2. Run: openclaw-ws"
     Write-Host "   3. Follow the BOOTSTRAP.md checklist"
     Write-Host "   4. Customize USER.md, IDENTITY.md, etc."
     Write-Host ""
     Write-Host "🔧 Useful commands:" -ForegroundColor Cyan
-    Write-Host "   openclaw-work-status     # Check if running"
-    Write-Host "   openclaw-work-restart    # Restart service"
-    Write-Host "   openclaw-work-stop       # Stop service"
-    Write-Host "   openclaw-work            # Go to workspace"
+    Write-Host "   openclaw-status     # Check if running"
+    Write-Host "   openclaw-restart    # Restart service"
+    Write-Host "   openclaw-stop       # Stop service"
+    Write-Host "   openclaw-ws            # Go to workspace"
     Write-Host ""
     Write-Host "📝 Installation log: $INSTALL_LOG" -ForegroundColor Cyan
     Write-Host ""
@@ -336,7 +336,7 @@ function Show-Instructions {
 # ── Main ────────────────────────────────────────────────────────────
 
 function Main {
-    Log "🦞 Starting OpenClaw Work Environment Installation (Windows)"
+    Log "🦞 Starting OpenClaw Installation (Windows)"
     Log "📊 Installation log: $INSTALL_LOG"
 
     Install-NodeJS

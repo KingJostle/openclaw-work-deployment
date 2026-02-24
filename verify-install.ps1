@@ -21,10 +21,10 @@ if (Get-Command openclaw -ErrorAction SilentlyContinue) {
 } else { Err "OpenClaw not found" }
 
 Info "Checking scheduled task..."
-$task = Get-ScheduledTask -TaskName "OpenClaw-Work" -ErrorAction SilentlyContinue
+$task = Get-ScheduledTask -TaskName "OpenClaw" -ErrorAction SilentlyContinue
 if ($task) {
     Success "Scheduled task exists (State: $($task.State))"
-} else { Err "Scheduled task 'OpenClaw-Work' not found" }
+} else { Err "Scheduled task 'OpenClaw' not found" }
 
 Info "Checking port $OPENCLAW_PORT..."
 try {
