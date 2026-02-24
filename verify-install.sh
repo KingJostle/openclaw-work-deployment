@@ -12,7 +12,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 OPENCLAW_PORT="18789"
-WORKSPACE_DIR="$HOME/.openclaw-work/workspace"
+WORKSPACE_DIR="$HOME/.openclaw/workspace"
 ERRORS=0
 
 # Detect OS
@@ -105,7 +105,7 @@ check_workspace() {
 
 check_config() {
     info "Checking OpenClaw configuration..."
-    local config_file="$HOME/.openclaw-work/openclaw.json"
+    local config_file="$HOME/.openclaw/openclaw.json"
     if [[ -f "$config_file" ]]; then
         success "Configuration file exists"
         if grep -q "\"port\": $OPENCLAW_PORT" "$config_file"; then
@@ -153,12 +153,12 @@ show_status() {
         if [[ "$OS" == "macos" ]]; then
             echo "• Service issues: openclaw-work-restart"
             echo "• View logs: openclaw-work-logs"
-            echo "• Manual start: openclaw gateway --config=~/.openclaw-work/openclaw.json"
+            echo "• Manual start: openclaw gateway --config=~/.openclaw/openclaw.json"
         else
             echo "• Service issues: sudo systemctl restart openclaw-work.service"
             echo "• View logs: journalctl -u openclaw-work.service -f"
         fi
-        echo "• Port conflicts: edit ~/.openclaw-work/openclaw.json"
+        echo "• Port conflicts: edit ~/.openclaw/openclaw.json"
         echo "• Missing files: re-run ./install.sh"
     fi
     echo ""
