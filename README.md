@@ -6,16 +6,16 @@
 
 ### macOS / Linux
 ```bash
-git clone https://github.com/KingJostle/openclaw-work-deployment.git
-cd openclaw-work-deployment
+git clone https://github.com/KingJostle/openclaw-deployment.git
+cd openclaw-deployment
 chmod +x install.sh
 ./install.sh
 ```
 
 ### Windows (PowerShell as Administrator)
 ```powershell
-git clone https://github.com/KingJostle/openclaw-work-deployment.git
-cd openclaw-work-deployment
+git clone https://github.com/KingJostle/openclaw-deployment.git
+cd openclaw-deployment
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\install.ps1
 ```
@@ -28,7 +28,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 - ✅ **Node.js** (latest LTS via Homebrew / winget / NodeSource)
 - ✅ **OpenClaw** (latest version, globally installed)
 - ✅ **Auto-start service** (launchd / Task Scheduler / systemd)
-- ✅ **Work workspace** (`~/.openclaw-work/workspace`)
+- ✅ **Work workspace** (`~/.openclaw/workspace`)
 
 ### Platform-Specific
 | Feature | macOS | Windows | Linux |
@@ -38,7 +38,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 | Package manager | Homebrew | winget | apt-get |
 | Shell config | ~/.zshrc | PowerShell $PROFILE | ~/.bashrc |
 | Firewall | Not needed (localhost) | Windows Firewall rule | UFW rules |
-| Logs | ~/.openclaw-work/*.log | ~/.openclaw-work/*.log | journalctl |
+| Logs | ~/.openclaw/*.log | ~/.openclaw/*.log | journalctl |
 
 ### Proven Patterns (cross-platform)
 - ✅ **Rate limit monitoring** (prevents API timeouts)
@@ -59,7 +59,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 ### 1. Complete Bootstrap Process
 ```bash
-openclaw-work  # Go to workspace
+openclaw  # Go to workspace
 # Follow BOOTSTRAP.md checklist
 # Delete BOOTSTRAP.md when complete
 ```
@@ -81,19 +81,19 @@ openclaw-work  # Go to workspace
 
 ### macOS
 ```bash
-openclaw-work-status     # Check if running
-openclaw-work-restart    # Restart service
-openclaw-work-stop       # Stop service
-openclaw-work-logs       # View real-time logs
-openclaw-work            # Go to workspace directory
+openclaw-status     # Check if running
+openclaw-restart    # Restart service
+openclaw-stop       # Stop service
+openclaw-logs       # View real-time logs
+openclaw            # Go to workspace directory
 ```
 
 ### Windows (PowerShell)
 ```powershell
-openclaw-work-status     # Check if running
-openclaw-work-restart    # Restart service
-openclaw-work-stop       # Stop service
-openclaw-work            # Go to workspace directory
+openclaw-status     # Check if running
+openclaw-restart    # Restart service
+openclaw-stop       # Stop service
+openclaw            # Go to workspace directory
 ```
 
 ### Linux
@@ -101,15 +101,15 @@ openclaw-work            # Go to workspace directory
 openclaw-status     # Check if running
 openclaw-restart    # Restart service
 openclaw-logs       # View real-time logs
-openclaw-work       # Go to workspace directory
+openclaw       # Go to workspace directory
 ```
 
 ## 📁 Directory Structure
 
 ```
-~/.openclaw-work/
+~/.openclaw/
 ├── openclaw.json           # OpenClaw configuration (port 18789)
-├── openclaw-work.*.log     # Service logs (macOS only)
+├── openclaw.*.log     # Service logs (macOS only)
 └── workspace/              # Your work environment
     ├── AGENTS.md            # Session startup patterns
     ├── SOUL.md             # Professional persona
@@ -139,7 +139,7 @@ openclaw-work       # Go to workspace directory
 - ❌ Personal API keys or service accounts
 
 ### Data Boundaries
-- Work data stays in work environment (`~/.openclaw-work/`)
+- Work data stays in work environment (`~/.openclaw/`)
 - No personal data contamination
 - Separate service, separate config, separate workspace
 - Complete isolation from other OpenClaw instances
@@ -149,13 +149,13 @@ openclaw-work       # Go to workspace directory
 ### macOS
 ```bash
 # Check service
-openclaw-work-status
+openclaw-status
 
 # View logs
-tail -f ~/.openclaw-work/openclaw-work.stderr.log
+tail -f ~/.openclaw/openclaw.stderr.log
 
 # Manual start for debugging
-openclaw gateway --config=~/.openclaw-work/openclaw.json
+openclaw gateway --config=~/.openclaw/openclaw.json
 
 # Reload LaunchAgent
 launchctl unload ~/Library/LaunchAgents/com.openclaw.work.plist
@@ -165,29 +165,29 @@ launchctl load -w ~/Library/LaunchAgents/com.openclaw.work.plist
 ### Windows
 ```powershell
 # Check service
-openclaw-work-status
+openclaw-status
 
 # View scheduled task
-Get-ScheduledTask -TaskName "OpenClaw-Work"
+Get-ScheduledTask -TaskName "openclaw"
 
 # Manual start for debugging
-openclaw gateway --config="$env:USERPROFILE\.openclaw-work\openclaw.json"
+openclaw gateway --config="$env:USERPROFILE\.openclaw\openclaw.json"
 
 # Restart task
-Stop-ScheduledTask -TaskName "OpenClaw-Work"
-Start-ScheduledTask -TaskName "OpenClaw-Work"
+Stop-ScheduledTask -TaskName "openclaw"
+Start-ScheduledTask -TaskName "openclaw"
 ```
 
 ### Linux
 ```bash
 # Check service
-sudo systemctl status openclaw-work.service
+sudo systemctl status openclaw.service
 
 # View logs
-journalctl -u openclaw-work.service -f
+journalctl -u openclaw.service -f
 
 # Manual start for debugging
-openclaw gateway --config=~/.openclaw-work/openclaw.json
+openclaw gateway --config=~/.openclaw/openclaw.json
 ```
 
 ### Port Conflicts (both platforms)
@@ -197,7 +197,7 @@ lsof -i :18789    # macOS
 ss -tulpn | grep :18789  # Linux
 
 # Edit config and restart
-nano ~/.openclaw-work/openclaw.json
+nano ~/.openclaw/openclaw.json
 # Change port, then restart
 ```
 
@@ -206,11 +206,11 @@ nano ~/.openclaw-work/openclaw.json
 ### Update OpenClaw
 ```bash
 # macOS
-npm update -g openclaw && openclaw-work-restart
+npm update -g openclaw && openclaw-restart
 
 # Linux
 sudo npm update -g openclaw
-sudo systemctl restart openclaw-work.service
+sudo systemctl restart openclaw.service
 ```
 
 ### Verify Installation
@@ -230,6 +230,6 @@ You'll know it's working when:
 
 ## 📞 Support
 
-**Installation Issues:** Check the installation log at `~/openclaw-work-install.log`
+**Installation Issues:** Check the installation log at `~/openclaw-install.log`
 
 **Configuration Help:** See `SETUP-GUIDE.md` in your workspace for detailed configuration guidance
