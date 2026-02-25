@@ -6,16 +6,16 @@
 
 ### macOS / Linux
 ```bash
-git clone https://github.com/KingJostle/openclaw-deployment.git
-cd openclaw-deployment
+git clone https://github.com/KingJostle/openclaw-work-deployment.git
+cd openclaw-work-deployment
 chmod +x install.sh
 ./install.sh
 ```
 
 ### Windows (PowerShell as Administrator)
 ```powershell
-git clone https://github.com/KingJostle/openclaw-deployment.git
-cd openclaw-deployment
+git clone https://github.com/KingJostle/openclaw-work-deployment.git
+cd openclaw-work-deployment
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\install.ps1
 ```
