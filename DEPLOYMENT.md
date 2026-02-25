@@ -65,10 +65,45 @@ The installer auto-detects macOS vs Linux and uses the appropriate service manag
 
 ## Post-Install
 
-1. **Access:** `http://localhost:18789`
-2. **Workspace:** `openclaw-ws` command or `cd ~/.openclaw/workspace`
-3. **Customize:** Follow BOOTSTRAP.md checklist
-4. **Service:** Auto-starts on boot/login
+### 1. Run the configuration wizard
+
+```bash
+openclaw configure
+```
+
+Work through the menus in this order:
+
+| Step | Menu | Selection |
+|------|------|-----------|
+| Scope | — | `Local (this machine)` |
+| Model | `Model` → `OpenAI` | `OpenAI Codex (ChatGPT OAuth)` |
+| Auth | Browser opens | Sign in to OpenAI, complete authorization |
+| Confirm | Terminal returns | Press **Enter** to confirm `openai-codex/gpt-5.3-codex` |
+| Gateway | `Gateway` | Leave port `18789`, press Enter |
+| Access | — | Select `Auto (Loopback -> LAN)` |
+| Auth type | — | Select `Password` |
+| Tailscale | — | Press Enter to leave **Off** |
+| Password | — | Set a password, press Enter |
+| Finish | — | Arrow to `Continue`, press Enter |
+
+### 2. Start the gateway
+
+```bash
+openclaw gateway
+```
+
+### 3. Connect via the web UI
+
+1. Open **http://127.0.0.1:18789/overview**
+2. Enter the password you set, click **Connect**
+3. Click **Refresh** — Status should show **OK**
+4. Go to **http://127.0.0.1:18789/chat** to start using OpenClaw
+
+### 4. Workspace and customization
+
+- **Workspace:** `openclaw-ws` or `cd ~/.openclaw/workspace`
+- **Customize:** Follow BOOTSTRAP.md checklist
+- **Service:** Auto-starts on boot/login after the gateway is first started
 
 ## What Gets Installed
 

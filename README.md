@@ -57,25 +57,63 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 ## 🔧 Post-Install Setup
 
-### 1. Complete Bootstrap Process
+### Step 1 — Configure OpenClaw (AI Model + Gateway)
+
+After the installer finishes, run the configuration wizard from your terminal:
+
 ```bash
-openclaw  # Go to workspace
+openclaw configure
+```
+
+Follow this exact flow through the interactive menus:
+
+**1. Scope**
+- Select **`Local (this machine)`**
+
+**2. Model setup**
+- Arrow to **`Model`** → press Enter
+- Select **`OpenAI`**
+- Select **`OpenAI Codex (ChatGPT OAuth)`**
+- A browser window will open — sign in to your OpenAI account and complete any authorization prompts
+- When done, your browser will show: **"Authentication successful. Return to your terminal to continue."**
+- Back in your terminal, press **Enter** to confirm the model (`openai-codex/gpt-5.3-codex`)
+
+**3. Gateway setup**
+- Back at the "Select sections to configure" menu, arrow to **`Gateway`** → press Enter
+- Leave the port at **`18789`** → press Enter
+- Arrow down to **`Auto (Loopback -> LAN)`** → press Enter
+- Select **`Password`**
+- On the "Tailscale exposure" option, press **Enter** to leave it **Off**
+- Enter a password of your choice → press Enter *(you'll use this to log into the web UI)*
+
+**4. Finish**
+- Back at the "Select sections to configure" menu, arrow down to **`Continue`** → press Enter
+
+**5. Start the gateway**
+```bash
+openclaw gateway
+```
+
+### Step 2 — Open the Web UI
+
+1. Go to **http://127.0.0.1:18789/overview** in your browser
+2. Enter the password you set above and click **Connect**
+3. Click the **Refresh** button — Status should show **OK**
+4. Navigate to **http://127.0.0.1:18789/chat** to start chatting
+
+### Step 3 — Complete Bootstrap Process
+```bash
+openclaw-ws  # Go to workspace
 # Follow BOOTSTRAP.md checklist
 # Delete BOOTSTRAP.md when complete
 ```
 
-### 2. Customize for Your Work
+### Step 4 — Customize for Your Work
 - **USER.md** → Add your actual work context, stakeholders, projects
 - **IDENTITY.md** → Choose your work assistant name and persona
 - **MEMORY.md** → Replace templates with real work information
 - **TOOLS.md** → Add your work infrastructure details
 - **HEARTBEAT.md** → Set your business hours and monitoring preferences
-
-### 3. Test Core Functionality
-- Access OpenClaw at `http://localhost:18789`
-- Test session startup (should read work files automatically)
-- Verify rate limit monitoring is active
-- Test communication patterns match your professional style
 
 ## 🛠️ Management Commands
 
