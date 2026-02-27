@@ -56,6 +56,33 @@ function Get-NpmCommand {
     return $null
 }
 
+function Get-PwshPath {
+    $pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
+    if ($pwsh) { return $pwsh.Source }
+
+    $knownPaths = @(
+        'C:\Program Files\PowerShell\7\pwsh.exe',
+        'C:\Program Files\PowerShell\pwsh.exe'
+    )
+
+    foreach ($path in $knownPaths) {
+        if (Test-Path $path) { return $path }
+    }
+
+    return $null
+}
+
+function Test-WingetSoftSuccess {
+    param([string]$Output)
+
+    if (-not $Output) { return $false }
+
+    return ($Output -match 'No available upgrade found' -or
+        $Output -match 'No newer package versions are available' -or
+        $Output -match 'Found an existing package already installed' -or
+        $Output -match 'Successfully installed')
+}
+
 function Ensure-Winget {
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
         Err "winget is required but was not found. Install App Installer from Microsoft Store, then re-run."
@@ -72,22 +99,29 @@ function Ensure-PowerShell7 {
     Warn "Detected Windows PowerShell $($PSVersionTable.PSVersion). Relaunching in PowerShell 7..."
     Ensure-Winget
 
-    $pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
-    if (-not $pwsh) {
+    $pwshPath = Get-PwshPath
+    if (-not $pwshPath) {
         Write-Step "Installing PowerShell 7 via winget"
-        & winget install -e --id Microsoft.PowerShell --accept-package-agreements --accept-source-agreements
-        if ($LASTEXITCODE -ne 0) { Err "Failed to install PowerShell 7 via winget." }
+        $wingetOutput = (& winget install -e --id Microsoft.PowerShell --accept-package-agreements --accept-source-agreements 2>&1 | Out-String)
+        $wingetExit = $LASTEXITCODE
         Refresh-Path
-        $pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
+        $pwshPath = Get-PwshPath
+
+        if (-not $pwshPath) {
+            Err "PowerShell 7 still not found after winget call (exit $wingetExit). Output: $wingetOutput"
+        }
+
+        if (Test-WingetSoftSuccess -Output $wingetOutput) {
+            Warn "winget reported PowerShell as already installed or no upgrade needed; continuing."
+        }
     }
 
-    if (-not $pwsh) { Err "PowerShell 7 install completed but pwsh.exe is still not on PATH." }
     Set-Summary 'PowerShell 7' 'OK (installed/relaunching)'
 
     $scriptPath = $MyInvocation.MyCommand.Path
     if (-not $scriptPath) { Err "Could not determine script path for PowerShell 7 relaunch." }
 
-    & $pwsh.Source -NoProfile -ExecutionPolicy Bypass -File $scriptPath
+    & $pwshPath -NoProfile -ExecutionPolicy Bypass -File $scriptPath
     exit $LASTEXITCODE
 }
 
@@ -109,15 +143,18 @@ function Ensure-Git {
 
     Ensure-Winget
     Warn "Git not found. Installing via winget..."
-    & winget install -e --id Git.Git --accept-package-agreements --accept-source-agreements
-    if ($LASTEXITCODE -ne 0) { Err "Git installation failed." }
+    $wingetOutput = (& winget install -e --id Git.Git --accept-package-agreements --accept-source-agreements 2>&1 | Out-String)
+    $wingetExit = $LASTEXITCODE
     Refresh-Path
 
     if (Get-Command git -ErrorAction SilentlyContinue) {
+        if (Test-WingetSoftSuccess -Output $wingetOutput) {
+            Warn "winget reported Git as already installed or no upgrade needed; continuing."
+        }
         Log "✅ Git installed: $(& git --version)"
         Set-Summary 'Git' 'OK (installed)'
     } else {
-        Err "Git install appears complete, but git is still unavailable in PATH. Open a new terminal and retry."
+        Err "Git still unavailable after winget call (exit $wingetExit). Output: $wingetOutput"
     }
 }
 
@@ -141,10 +178,14 @@ function Ensure-NodeJS {
     }
 
     Ensure-Winget
-    & winget install -e --id OpenJS.NodeJS --accept-package-agreements --accept-source-agreements
-    if ($LASTEXITCODE -ne 0) { Err "Node.js installation failed." }
+    $wingetOutput = (& winget install -e --id OpenJS.NodeJS --accept-package-agreements --accept-source-agreements 2>&1 | Out-String)
+    $wingetExit = $LASTEXITCODE
 
     Refresh-Path
+
+    if (Test-WingetSoftSuccess -Output $wingetOutput) {
+        Warn "winget reported Node.js as already installed or no upgrade needed; continuing."
+    }
 
     $nodeCmd = Get-Command node -ErrorAction SilentlyContinue
     $npmCmd = Get-NpmCommand
@@ -154,12 +195,12 @@ function Ensure-NodeJS {
             Warn "node.exe still not found after PATH refresh; testing npm fallback at $npmCmd"
             & $npmCmd --version | Out-Null
             if ($LASTEXITCODE -ne 0) {
-                Err "Node.js install completed, but node is missing from PATH and npm fallback failed."
+                Err "Node.js unavailable after winget call (exit $wingetExit), and npm fallback failed. Output: $wingetOutput"
             }
             Set-Summary 'Node.js' 'WARN (node missing in PATH; npm fallback available)'
             return
         }
-        Err "node.exe still not found after install."
+        Err "Node.js still not found after winget call (exit $wingetExit), and npm fallback is unavailable. Output: $wingetOutput"
     }
 
     if (-not $npmCmd) { Err "npm.cmd still not found after install." }
