@@ -369,6 +369,15 @@ EOF
 
 # ── Final output ────────────────────────────────────────────────────
 
+run_doctor_fix() {
+    log "🩺 Running OpenClaw doctor --fix..."
+    if openclaw doctor --fix; then
+        log "✅ openclaw doctor --fix completed"
+    else
+        warn "openclaw doctor --fix reported issues (continuing)"
+    fi
+}
+
 final_setup_instructions() {
     log "📋 Installation complete! Next steps:"
     echo ""
@@ -425,8 +434,8 @@ main() {
 
     create_shortcuts
     final_setup_instructions
-
     log "🎉 Installation completed successfully!"
+    run_doctor_fix
 }
 
 main "$@"

@@ -375,6 +375,20 @@ function openclaw-stop {
 
 # ── Final Instructions ──────────────────────────────────────────────
 
+function Run-DoctorFix {
+    Write-Step "Running openclaw doctor --fix"
+    try {
+        & openclaw doctor --fix
+        if ($LASTEXITCODE -eq 0) {
+            Log "✅ openclaw doctor --fix completed"
+        } else {
+            Warn "openclaw doctor --fix exited with code $LASTEXITCODE (continuing)"
+        }
+    } catch {
+        Warn "openclaw doctor --fix failed: $($_.Exception.Message)"
+    }
+}
+
 function Show-Instructions {
     Log "📋 Installation complete!"
     Write-Host ""
@@ -419,8 +433,8 @@ function Main {
     Start-OpenClaw
     Create-Shortcuts
     Show-Instructions
-
     Log "🎉 Installation completed successfully!"
+    Run-DoctorFix
 }
 
 Main
