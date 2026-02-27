@@ -1,6 +1,7 @@
 # OpenClaw Environment - Turnkey Installation for Windows
 # Safe to run from Windows PowerShell 5.1 or PowerShell 7+
 
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
 $ErrorActionPreference = "Stop"
 
 # Configuration

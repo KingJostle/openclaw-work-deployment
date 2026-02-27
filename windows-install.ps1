@@ -1,10 +1,12 @@
 # OpenClaw Windows Bootstrap Installer
 # Run from any PowerShell window on a fresh machine.
 
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
 $ErrorActionPreference = 'Stop'
 
 $RepoUrl = 'https://github.com/KingJostle/openclaw-work-deployment.git'
 $TargetDir = Join-Path $env:USERPROFILE 'openclaw-work-deployment'
+$repoPath = $TargetDir
 $InstallLog = Join-Path $env:USERPROFILE 'openclaw-install.log'
 
 $script:Summary = [ordered]@{}
@@ -137,7 +139,7 @@ function Ensure-Pwsh {
   Write-Step 'Checking PowerShell 7 (pwsh.exe)'
   $pwshPath = Get-PwshPath
   if ($pwshPath) {
-    Write-Ok "pwsh present: $(& $pwshPath -NoLogo -NoProfile -Command '$PSVersionTable.PSVersion.ToString()')"
+    Write-Ok "pwsh present: $(& $pwshPath -NoLogo -NoProfile -ExecutionPolicy Bypass -Command '$PSVersionTable.PSVersion.ToString()')"
     Write-Log 'INFO' "PowerShell 7 path resolved: $pwshPath"
     Set-Summary 'PowerShell 7 Path' $pwshPath
     Set-Summary 'PowerShell 7' 'OK (already installed)'
@@ -283,7 +285,7 @@ function Run-InstallScript {
     throw 'Cannot run install.ps1 because pwsh.exe was not found.'
   }
 
-  & $pwshPath -NoProfile -ExecutionPolicy Bypass -File $installScript
+  & "$pwshPath" -ExecutionPolicy Bypass -File "$repoPath\install.ps1"
   if ($LASTEXITCODE -ne 0) {
     throw "install.ps1 failed (exit code: $LASTEXITCODE)"
   }
