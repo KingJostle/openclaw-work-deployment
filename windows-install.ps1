@@ -5,6 +5,7 @@ $ErrorActionPreference = 'Stop'
 
 $RepoUrl = 'https://github.com/KingJostle/openclaw-work-deployment.git'
 $TargetDir = Join-Path $env:USERPROFILE 'openclaw-work-deployment'
+$InstallLog = Join-Path $env:USERPROFILE 'openclaw-install.log'
 
 $script:Summary = [ordered]@{}
 
@@ -13,12 +14,35 @@ function Write-Ok($m) { Write-Host "[OK]   $m" -ForegroundColor Green }
 function Write-Warn($m) { Write-Host "[WARN] $m" -ForegroundColor Yellow }
 function Write-Err($m) { Write-Host "[ERR]  $m" -ForegroundColor Red }
 
+function Write-Log($level, $message) {
+  $ts = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+  Add-Content -Path $InstallLog -Value "[$ts] [$level] $message"
+}
+
 function Set-Summary($k, $v) { $script:Summary[$k] = $v }
+
+function Pause-AfterStep($label) {
+  try {
+    Read-Host "[PAUSE] $label complete. Press Enter to continue"
+  } catch {
+    Start-Sleep -Seconds 5
+  }
+}
 
 function Refresh-Path {
   $machine = [Environment]::GetEnvironmentVariable('Path', 'Machine')
   $user = [Environment]::GetEnvironmentVariable('Path', 'User')
   $env:Path = "$machine;$user"
+}
+
+function Get-NpmCommand {
+  $npm = Get-Command npm -ErrorAction SilentlyContinue
+  if ($npm) { return $npm.Source }
+
+  $fallback = 'C:\Program Files\nodejs\npm.cmd'
+  if (Test-Path $fallback) { return $fallback }
+
+  return $null
 }
 
 function Ensure-Winget {
@@ -113,8 +137,21 @@ function Ensure-Node {
   if ($LASTEXITCODE -ne 0) { throw 'Failed to install Node.js via winget.' }
 
   Refresh-Path
-  if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
-    throw 'Node.js install reported success but node is not in PATH.'
+
+  $node = Get-Command node -ErrorAction SilentlyContinue
+  if (-not $node) {
+    $npmCmd = Get-NpmCommand
+    if ($npmCmd) {
+      Write-Warn "node not found after PATH refresh; using npm fallback at $npmCmd"
+      & $npmCmd --version | Out-Null
+      if ($LASTEXITCODE -ne 0) {
+        throw 'Node.js install reported success but node is not in PATH and npm fallback failed.'
+      }
+      Set-Summary 'Node.js' 'WARN (node missing in PATH; npm fallback available)'
+      return
+    }
+
+    throw 'Node.js install reported success but node is not in PATH and npm fallback is unavailable.'
   }
 
   Write-Ok "Node.js installed: $(& node --version)"
@@ -123,7 +160,12 @@ function Ensure-Node {
 
 function Ensure-OpenClaw {
   Write-Step 'Installing OpenClaw globally via npm'
-  & npm install -g openclaw
+  $npmCmd = Get-NpmCommand
+  if (-not $npmCmd) {
+    throw 'npm is unavailable. Node.js installation appears incomplete.'
+  }
+
+  & $npmCmd install -g openclaw
   if ($LASTEXITCODE -ne 0) { throw 'npm install -g openclaw failed.' }
 
   Refresh-Path
@@ -228,21 +270,40 @@ function Validate-DoctorAndPatchBind {
 function Print-Summary {
   Write-Host ''
   Write-Host '========== Windows Install Summary ==========' -ForegroundColor Cyan
-  foreach ($entry in $script:Summary.GetEnumerator()) {
-    Write-Host ('- {0}: {1}' -f $entry.Key, $entry.Value) -ForegroundColor Green
+
+  if ($script:Summary.Count -eq 0) {
+    Write-Host '- No steps were recorded.' -ForegroundColor Yellow
   }
+
+  foreach ($entry in $script:Summary.GetEnumerator()) {
+    $color = 'Green'
+    if ($entry.Value -match 'FAILED|ERR') { $color = 'Red' }
+    elseif ($entry.Value -match 'WARN|Warning') { $color = 'Yellow' }
+    Write-Host ('- {0}: {1}' -f $entry.Key, $entry.Value) -ForegroundColor $color
+  }
+
   Write-Host ''
+  Write-Host "Detailed log: $InstallLog" -ForegroundColor Cyan
   Write-Host 'If Scheduled Task setup was skipped due to permissions, rerun install.ps1 in an elevated shell later.' -ForegroundColor Yellow
   Write-Host 'OpenClaw UI: http://localhost:18789' -ForegroundColor Cyan
 }
 
 try {
+  Write-Log 'INFO' 'OpenClaw Windows bootstrap starting'
   Write-Host 'OpenClaw Windows bootstrap starting...' -ForegroundColor Cyan
+
   Ensure-Admin
   Set-ExecutionPolicySafe
+
   Ensure-Git
+  Pause-AfterStep 'Git install/check'
+
   Ensure-Pwsh
+  Pause-AfterStep 'PowerShell 7 install/check'
+
   Ensure-Node
+  Pause-AfterStep 'Node.js install/check'
+
   Refresh-Path
   Ensure-OpenClaw
   [void](Remove-InvalidGatewayBind)
@@ -250,9 +311,26 @@ try {
   Set-Location $TargetDir
   Run-InstallScript
   Validate-DoctorAndPatchBind
+
+  Set-Summary 'Result' 'SUCCESS'
   Print-Summary
 } catch {
-  Write-Err $_.Exception.Message
-  Write-Host 'Install stopped. Fix the issue above and rerun this script.' -ForegroundColor Yellow
+  $err = $_
+  $msg = $err.Exception.Message
+  $detail = $err | Out-String
+
+  Set-Summary 'Result' 'FAILED'
+  Set-Summary 'Error' $msg
+
+  Write-Err $msg
+  Write-Log 'ERROR' $detail
+  Print-Summary
+  Write-Host 'Installation failed — see openclaw-install.log for details' -ForegroundColor Red
   exit 1
+} finally {
+  try {
+    Read-Host 'Press Enter to close'
+  } catch {
+    Start-Sleep -Seconds 5
+  }
 }

@@ -9,8 +9,17 @@ $WORK_HOME = $env:USERPROFILE
 $WORKSPACE_DIR = "$WORK_HOME\.openclaw\workspace"
 $CONFIG_DIR = "$WORK_HOME\.openclaw"
 $INSTALL_LOG = "$WORK_HOME\openclaw-install.log"
+$script:Summary = [ordered]@{}
 
+function Set-Summary($k, $v) { $script:Summary[$k] = $v }
 function Write-Step($msg) { Write-Host "[STEP] $msg" -ForegroundColor Cyan }
+function Pause-AfterStep($label) {
+    try {
+        Read-Host "[PAUSE] $label complete. Press Enter to continue"
+    } catch {
+        Start-Sleep -Seconds 5
+    }
+}
 function Log($msg) {
     $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $line = "[$ts] $msg"
@@ -28,13 +37,23 @@ function Err($msg) {
     $line = "[$ts] ERROR: $msg"
     Write-Host $line -ForegroundColor Red
     Add-Content -Path $INSTALL_LOG -Value $line
-    exit 1
+    throw $msg
 }
 
 function Refresh-Path {
     $machine = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
     $user = [System.Environment]::GetEnvironmentVariable("Path", "User")
     $env:Path = "$machine;$user"
+}
+
+function Get-NpmCommand {
+    $npm = Get-Command npm -ErrorAction SilentlyContinue
+    if ($npm) { return $npm.Source }
+
+    $fallback = 'C:\Program Files\nodejs\npm.cmd'
+    if (Test-Path $fallback) { return $fallback }
+
+    return $null
 }
 
 function Ensure-Winget {
@@ -46,6 +65,7 @@ function Ensure-Winget {
 function Ensure-PowerShell7 {
     if ($PSVersionTable.PSVersion.Major -ge 7) {
         Log "✅ Running on PowerShell $($PSVersionTable.PSVersion)"
+        Set-Summary 'PowerShell 7' 'OK (already running pwsh)'
         return
     }
 
@@ -62,6 +82,7 @@ function Ensure-PowerShell7 {
     }
 
     if (-not $pwsh) { Err "PowerShell 7 install completed but pwsh.exe is still not on PATH." }
+    Set-Summary 'PowerShell 7' 'OK (installed/relaunching)'
 
     $scriptPath = $MyInvocation.MyCommand.Path
     if (-not $scriptPath) { Err "Could not determine script path for PowerShell 7 relaunch." }
@@ -82,6 +103,7 @@ function Ensure-Git {
     Write-Step "Checking Git"
     if (Get-Command git -ErrorAction SilentlyContinue) {
         Log "✅ Git installed: $(& git --version)"
+        Set-Summary 'Git' 'OK (already installed)'
         return
     }
 
@@ -93,6 +115,7 @@ function Ensure-Git {
 
     if (Get-Command git -ErrorAction SilentlyContinue) {
         Log "✅ Git installed: $(& git --version)"
+        Set-Summary 'Git' 'OK (installed)'
     } else {
         Err "Git install appears complete, but git is still unavailable in PATH. Open a new terminal and retry."
     }
@@ -109,6 +132,7 @@ function Ensure-NodeJS {
         Log "Node.js already installed: $ver"
         if ($ver -match 'v(\d+)' -and [int]$Matches[1] -ge 18) {
             Log "✅ Node.js version is sufficient"
+            Set-Summary 'Node.js' 'OK (already installed)'
             return
         }
         Warn "Node.js version may be too old. Upgrading via winget..."
@@ -122,18 +146,37 @@ function Ensure-NodeJS {
 
     Refresh-Path
 
-    if (-not (Get-Command node -ErrorAction SilentlyContinue)) { Err "node.exe still not found after install." }
-    if (-not (Get-Command npm -ErrorAction SilentlyContinue)) { Err "npm.cmd still not found after install." }
+    $nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+    $npmCmd = Get-NpmCommand
+
+    if (-not $nodeCmd) {
+        if ($npmCmd) {
+            Warn "node.exe still not found after PATH refresh; testing npm fallback at $npmCmd"
+            & $npmCmd --version | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+                Err "Node.js install completed, but node is missing from PATH and npm fallback failed."
+            }
+            Set-Summary 'Node.js' 'WARN (node missing in PATH; npm fallback available)'
+            return
+        }
+        Err "node.exe still not found after install."
+    }
+
+    if (-not $npmCmd) { Err "npm.cmd still not found after install." }
 
     Log "✅ Node.js installed: $(& node --version)"
-    Log "✅ npm installed: $(& npm --version)"
+    Log "✅ npm installed: $(& $npmCmd --version)"
+    Set-Summary 'Node.js' 'OK (installed)'
 }
 
 # ── OpenClaw ────────────────────────────────────────────────────────
 
 function Install-OpenClaw {
     Write-Step "Installing OpenClaw"
-    & npm install -g openclaw
+    $npmCmd = Get-NpmCommand
+    if (-not $npmCmd) { Err "npm is unavailable. Node.js installation appears incomplete." }
+
+    & $npmCmd install -g openclaw
     if ($LASTEXITCODE -ne 0) { Err "npm failed to install openclaw globally." }
 
     Refresh-Path
@@ -144,6 +187,7 @@ function Install-OpenClaw {
         if (-not $ver) { $ver = & openclaw --version 2>$null }
         if (-not $ver) { $ver = "unknown" }
         Log "✅ OpenClaw installed: $ver"
+        Set-Summary 'OpenClaw' 'OK'
     } else {
         Err "OpenClaw installation failed. Ensure npm global bin is in PATH."
     }
@@ -416,6 +460,25 @@ function Run-DoctorAndPatchBind {
     }
 }
 
+function Print-Summary {
+    Write-Host ""
+    Write-Host "========== Install Summary ==========" -ForegroundColor Cyan
+
+    if ($script:Summary.Count -eq 0) {
+        Write-Host "- No steps were recorded." -ForegroundColor Yellow
+    }
+
+    foreach ($entry in $script:Summary.GetEnumerator()) {
+        $color = 'Green'
+        if ($entry.Value -match 'FAILED|ERROR') { $color = 'Red' }
+        elseif ($entry.Value -match 'WARN|Warning') { $color = 'Yellow' }
+        Write-Host ("- {0}: {1}" -f $entry.Key, $entry.Value) -ForegroundColor $color
+    }
+
+    Write-Host ""
+    Write-Host "Installation log: $INSTALL_LOG" -ForegroundColor Cyan
+}
+
 function Show-Instructions {
     Log "📋 Installation complete!"
     Write-Host ""
@@ -448,10 +511,17 @@ function Main {
     Log "📊 Installation log: $INSTALL_LOG"
 
     Ensure-PowerShell7
+    Pause-AfterStep 'PowerShell 7 install/check'
+
     Ensure-ExecutionPolicy
     Ensure-Winget
+
     Ensure-Git
+    Pause-AfterStep 'Git install/check'
+
     Ensure-NodeJS
+    Pause-AfterStep 'Node.js install/check'
+
     Install-OpenClaw
     Setup-Workspace
     Configure-OpenClaw
@@ -461,8 +531,27 @@ function Main {
     Start-OpenClaw
     Create-Shortcuts
     Show-Instructions
-    Log "🎉 Installation completed successfully!"
     Run-DoctorAndPatchBind
+    Set-Summary 'Result' 'SUCCESS'
+    Log "🎉 Installation completed successfully!"
 }
 
-Main
+try {
+    Main
+    Print-Summary
+} catch {
+    $err = $_
+    $detail = $err | Out-String
+    Set-Summary 'Result' 'FAILED'
+    Set-Summary 'Error' $err.Exception.Message
+    Add-Content -Path $INSTALL_LOG -Value $detail
+    Print-Summary
+    Write-Host "Installation failed — see openclaw-install.log for details" -ForegroundColor Red
+    exit 1
+} finally {
+    try {
+        Read-Host "Press Enter to close"
+    } catch {
+        Start-Sleep -Seconds 5
+    }
+}
