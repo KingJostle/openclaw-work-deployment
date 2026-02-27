@@ -45,6 +45,33 @@ function Get-NpmCommand {
   return $null
 }
 
+function Get-PwshPath {
+  $pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
+  if ($pwsh) { return $pwsh.Source }
+
+  $knownPaths = @(
+    'C:\Program Files\PowerShell\7\pwsh.exe',
+    'C:\Program Files\PowerShell\pwsh.exe'
+  )
+
+  foreach ($path in $knownPaths) {
+    if (Test-Path $path) { return $path }
+  }
+
+  return $null
+}
+
+function Test-WingetSoftSuccess {
+  param([string]$Output)
+
+  if (-not $Output) { return $false }
+
+  return ($Output -match 'No available upgrade found' -or
+    $Output -match 'No newer package versions are available' -or
+    $Output -match 'Found an existing package already installed' -or
+    $Output -match 'Successfully installed')
+}
+
 function Ensure-Winget {
   if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
     throw 'winget is required but not found. Install App Installer from the Microsoft Store, then retry.'
@@ -89,12 +116,17 @@ function Ensure-Git {
 
   Ensure-Winget
   Write-Warn 'Git missing. Installing via winget...'
-  & winget install --id Git.Git -e --accept-package-agreements --accept-source-agreements
-  if ($LASTEXITCODE -ne 0) { throw 'Failed to install Git via winget.' }
+  $wingetOutput = (& winget install --id Git.Git -e --accept-package-agreements --accept-source-agreements 2>&1 | Out-String)
+  $wingetExit = $LASTEXITCODE
 
   Refresh-Path
-  if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
-    throw 'Git install reported success but git is not in PATH.'
+  $gitCmd = Get-Command git -ErrorAction SilentlyContinue
+  if (-not $gitCmd) {
+    throw "Git is still unavailable after winget install (exit $wingetExit). Output: $wingetOutput"
+  }
+
+  if (Test-WingetSoftSuccess -Output $wingetOutput) {
+    Write-Warn 'winget reported Git as already installed or no upgrade needed; continuing.'
   }
 
   Write-Ok "Git installed: $(& git --version)"
@@ -103,24 +135,30 @@ function Ensure-Git {
 
 function Ensure-Pwsh {
   Write-Step 'Checking PowerShell 7 (pwsh.exe)'
-  if (Get-Command pwsh -ErrorAction SilentlyContinue) {
-    Write-Ok "pwsh present: $(& pwsh -NoLogo -NoProfile -Command '$PSVersionTable.PSVersion.ToString()')"
+  $pwshPath = Get-PwshPath
+  if ($pwshPath) {
+    Write-Ok "pwsh present: $(& $pwshPath -NoLogo -NoProfile -Command '$PSVersionTable.PSVersion.ToString()')"
     Set-Summary 'PowerShell 7' 'OK (already installed)'
     return
   }
 
   Ensure-Winget
   Write-Warn 'PowerShell 7 missing. Installing via winget...'
-  & winget install --id Microsoft.PowerShell -e --accept-package-agreements --accept-source-agreements
-  if ($LASTEXITCODE -ne 0) { throw 'Failed to install PowerShell 7 via winget.' }
+  $wingetOutput = (& winget install --id Microsoft.PowerShell -e --accept-package-agreements --accept-source-agreements 2>&1 | Out-String)
+  $wingetExit = $LASTEXITCODE
 
   Refresh-Path
-  if (-not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
-    throw 'PowerShell 7 install reported success but pwsh.exe is not in PATH.'
+  $pwshPath = Get-PwshPath
+  if (-not $pwshPath) {
+    throw "PowerShell 7 still not found after winget call (exit $wingetExit). Output: $wingetOutput"
   }
 
-  Write-Ok 'PowerShell 7 installed'
-  Set-Summary 'PowerShell 7' 'OK (installed)'
+  if (Test-WingetSoftSuccess -Output $wingetOutput) {
+    Write-Warn 'winget reported PowerShell as already installed or no upgrade needed; continuing.'
+  }
+
+  Write-Ok "PowerShell 7 available at: $pwshPath"
+  Set-Summary 'PowerShell 7' 'OK (installed or already present)'
 }
 
 function Ensure-Node {
@@ -133,10 +171,14 @@ function Ensure-Node {
 
   Ensure-Winget
   Write-Warn 'Node.js missing. Installing via winget...'
-  & winget install -e --id OpenJS.NodeJS --accept-package-agreements --accept-source-agreements
-  if ($LASTEXITCODE -ne 0) { throw 'Failed to install Node.js via winget.' }
+  $wingetOutput = (& winget install -e --id OpenJS.NodeJS --accept-package-agreements --accept-source-agreements 2>&1 | Out-String)
+  $wingetExit = $LASTEXITCODE
 
   Refresh-Path
+
+  if (Test-WingetSoftSuccess -Output $wingetOutput) {
+    Write-Warn 'winget reported Node.js as already installed or no upgrade needed; continuing.'
+  }
 
   $node = Get-Command node -ErrorAction SilentlyContinue
   if (-not $node) {
@@ -145,13 +187,13 @@ function Ensure-Node {
       Write-Warn "node not found after PATH refresh; using npm fallback at $npmCmd"
       & $npmCmd --version | Out-Null
       if ($LASTEXITCODE -ne 0) {
-        throw 'Node.js install reported success but node is not in PATH and npm fallback failed.'
+        throw "Node.js unavailable after winget call (exit $wingetExit), and npm fallback failed. Output: $wingetOutput"
       }
       Set-Summary 'Node.js' 'WARN (node missing in PATH; npm fallback available)'
       return
     }
 
-    throw 'Node.js install reported success but node is not in PATH and npm fallback is unavailable.'
+    throw "Node.js still not found after winget call (exit $wingetExit), and npm fallback is unavailable. Output: $wingetOutput"
   }
 
   Write-Ok "Node.js installed: $(& node --version)"
@@ -232,7 +274,12 @@ function Run-InstallScript {
     throw "install.ps1 not found at $installScript"
   }
 
-  & pwsh.exe -NoProfile -ExecutionPolicy Bypass -File $installScript
+  $pwshPath = Get-PwshPath
+  if (-not $pwshPath) {
+    throw 'Cannot run install.ps1 because pwsh.exe was not found.'
+  }
+
+  & $pwshPath -NoProfile -ExecutionPolicy Bypass -File $installScript
   if ($LASTEXITCODE -ne 0) {
     throw "install.ps1 failed (exit code: $LASTEXITCODE)"
   }
