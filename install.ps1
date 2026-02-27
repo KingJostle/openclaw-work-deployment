@@ -204,7 +204,6 @@ function Configure-OpenClaw {
 {
   "gateway": {
     "port": $OPENCLAW_PORT,
-    "bind": "0.0.0.0",
     "controlUi": {
       "dangerouslyAllowHostHeaderOriginFallback": true
     }
@@ -375,17 +374,45 @@ function openclaw-stop {
 
 # ── Final Instructions ──────────────────────────────────────────────
 
-function Run-DoctorFix {
-    Write-Step "Running openclaw doctor --fix"
+function Remove-InvalidGatewayBind {
+    $cfg = "$CONFIG_DIR\openclaw.json"
+    if (-not (Test-Path $cfg)) { return }
+
     try {
-        & openclaw doctor --fix
-        if ($LASTEXITCODE -eq 0) {
-            Log "✅ openclaw doctor --fix completed"
-        } else {
-            Warn "openclaw doctor --fix exited with code $LASTEXITCODE (continuing)"
+        $json = Get-Content -Path $cfg -Raw | ConvertFrom-Json
+        if ($null -ne $json.gateway -and $json.gateway.PSObject.Properties.Name -contains 'bind') {
+            $json.gateway.PSObject.Properties.Remove('bind')
+            $json | ConvertTo-Json -Depth 20 | Set-Content -Path $cfg -Encoding UTF8
+            Warn "Removed invalid gateway.bind from openclaw.json to prevent config corruption"
         }
     } catch {
-        Warn "openclaw doctor --fix failed: $($_.Exception.Message)"
+        Warn "Could not validate/patch gateway.bind: $($_.Exception.Message)"
+    }
+}
+
+function Run-DoctorAndPatchBind {
+    Write-Step "Running openclaw doctor"
+    try {
+        $doctorOut = (& openclaw doctor 2>&1 | Out-String)
+        if ($doctorOut -match 'gateway\.bind: Invalid input') {
+            Warn "Detected invalid gateway.bind from doctor output; patching config automatically"
+            Remove-InvalidGatewayBind
+            & openclaw doctor --fix
+            if ($LASTEXITCODE -eq 0) {
+                Log "✅ openclaw doctor --fix completed after gateway.bind patch"
+            } else {
+                Warn "openclaw doctor --fix exited with code $LASTEXITCODE (continuing)"
+            }
+        } else {
+            & openclaw doctor --fix
+            if ($LASTEXITCODE -eq 0) {
+                Log "✅ openclaw doctor --fix completed"
+            } else {
+                Warn "openclaw doctor --fix exited with code $LASTEXITCODE (continuing)"
+            }
+        }
+    } catch {
+        Warn "openclaw doctor validation/fix failed: $($_.Exception.Message)"
     }
 }
 
@@ -428,13 +455,14 @@ function Main {
     Install-OpenClaw
     Setup-Workspace
     Configure-OpenClaw
+    Remove-InvalidGatewayBind
     Create-ScheduledTask
     Setup-Firewall
     Start-OpenClaw
     Create-Shortcuts
     Show-Instructions
     Log "🎉 Installation completed successfully!"
-    Run-DoctorFix
+    Run-DoctorAndPatchBind
 }
 
 Main

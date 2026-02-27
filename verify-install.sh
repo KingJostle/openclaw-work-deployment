@@ -113,6 +113,12 @@ check_config() {
         else
             warning "  Port configuration may be incorrect"
         fi
+
+        if grep -q '"bind"' "$config_file"; then
+            error "  Known issue detected: gateway.bind is present (invalid). Fix: remove gateway.bind from ~/.openclaw/openclaw.json or run: openclaw doctor --fix"
+        else
+            success "  gateway.bind not present (good)"
+        fi
     else
         error "Configuration file missing: $config_file"
     fi

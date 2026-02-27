@@ -164,6 +164,25 @@ function Ensure-Repo {
   Set-Summary 'Repository' 'OK (cloned)'
 }
 
+function Remove-InvalidGatewayBind {
+  $cfg = Join-Path $env:USERPROFILE '.openclaw\openclaw.json'
+  if (-not (Test-Path $cfg)) { return $false }
+
+  try {
+    $json = Get-Content -Path $cfg -Raw | ConvertFrom-Json
+    if ($null -ne $json.gateway -and $json.gateway.PSObject.Properties.Name -contains 'bind') {
+      $json.gateway.PSObject.Properties.Remove('bind')
+      $json | ConvertTo-Json -Depth 20 | Set-Content -Path $cfg -Encoding UTF8
+      Write-Warn 'Removed invalid gateway.bind from openclaw.json to prevent configure failures.'
+      return $true
+    }
+  } catch {
+    Write-Warn "Failed to inspect/patch openclaw.json: $($_.Exception.Message)"
+  }
+
+  return $false
+}
+
 function Run-InstallScript {
   Write-Step 'Running install.ps1 via pwsh.exe'
   $installScript = Join-Path $TargetDir 'install.ps1'
@@ -178,6 +197,32 @@ function Run-InstallScript {
 
   Write-Ok 'install.ps1 completed'
   Set-Summary 'Main install' 'OK'
+}
+
+function Validate-DoctorAndPatchBind {
+  Write-Step 'Running post-install doctor validation'
+  try {
+    $doctorOut = (& openclaw doctor 2>&1 | Out-String)
+    if ($doctorOut -match 'gateway\.bind: Invalid input') {
+      Write-Warn 'Detected gateway.bind: Invalid input. Applying automatic config patch...'
+      $changed = Remove-InvalidGatewayBind
+      if ($changed) {
+        & openclaw doctor --fix | Out-Null
+        Write-Ok 'Patched gateway.bind and re-ran openclaw doctor --fix'
+        Set-Summary 'Doctor validation' 'Patched invalid gateway.bind'
+      } else {
+        Write-Warn 'gateway.bind error detected, but no patch was applied. Check ~/.openclaw/openclaw.json manually.'
+        Set-Summary 'Doctor validation' 'Warning (manual fix may be needed)'
+      }
+    } else {
+      & openclaw doctor --fix | Out-Null
+      Write-Ok 'Doctor validation passed'
+      Set-Summary 'Doctor validation' 'OK'
+    }
+  } catch {
+    Write-Warn "Doctor validation failed: $($_.Exception.Message)"
+    Set-Summary 'Doctor validation' 'Warning (doctor command failed)'
+  }
 }
 
 function Print-Summary {
@@ -200,9 +245,11 @@ try {
   Ensure-Node
   Refresh-Path
   Ensure-OpenClaw
+  [void](Remove-InvalidGatewayBind)
   Ensure-Repo
   Set-Location $TargetDir
   Run-InstallScript
+  Validate-DoctorAndPatchBind
   Print-Summary
 } catch {
   Write-Err $_.Exception.Message

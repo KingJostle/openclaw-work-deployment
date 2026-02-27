@@ -68,7 +68,19 @@ if (Test-Path $WORKSPACE_DIR) {
 
 Info "Checking config..."
 $cfg = "$env:USERPROFILE\.openclaw\openclaw.json"
-if (Test-Path $cfg) { Success "Config file exists" } else { Err "Config missing: $cfg" }
+if (Test-Path $cfg) {
+    Success "Config file exists"
+    try {
+        $cfgJson = Get-Content -Path $cfg -Raw | ConvertFrom-Json
+        if ($null -ne $cfgJson.gateway -and $cfgJson.gateway.PSObject.Properties.Name -contains 'bind') {
+            Err "Known issue detected: gateway.bind is present (invalid). Fix: remove gateway.bind from ~/.openclaw/openclaw.json or run openclaw doctor --fix"
+        } else {
+            Success "gateway.bind not present (good)"
+        }
+    } catch {
+        Warning "Could not parse config JSON to validate gateway.bind"
+    }
+} else { Err "Config missing: $cfg" }
 
 Write-Host ""
 Write-Host "=== VERIFICATION SUMMARY (Windows) ===" -ForegroundColor Cyan

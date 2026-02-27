@@ -165,7 +165,6 @@ configure_openclaw() {
 {
   "gateway": {
     "port": $OPENCLAW_PORT,
-    "bind": "0.0.0.0",
     "controlUi": {
       "dangerouslyAllowHostHeaderOriginFallback": true
     }
@@ -369,12 +368,56 @@ EOF
 
 # ── Final output ────────────────────────────────────────────────────
 
-run_doctor_fix() {
-    log "🩺 Running OpenClaw doctor --fix..."
-    if openclaw doctor --fix; then
-        log "✅ openclaw doctor --fix completed"
+remove_invalid_gateway_bind() {
+    local config_file="$WORK_HOME/.openclaw/openclaw.json"
+    local patch_result
+    [[ -f "$config_file" ]] || return 0
+
+    patch_result="$(python3 - "$config_file" <<'PY'
+import json, sys
+p=sys.argv[1]
+with open(p,'r',encoding='utf-8') as f:
+    data=json.load(f)
+gw=data.get('gateway')
+changed=False
+if isinstance(gw, dict) and 'bind' in gw:
+    gw.pop('bind', None)
+    changed=True
+if changed:
+    with open(p,'w',encoding='utf-8') as f:
+        json.dump(data,f,indent=2)
+print('changed' if changed else 'unchanged')
+PY
+)" || {
+        warn "Could not validate/patch gateway.bind (python3/json parse issue)"
+        return 0
+    }
+
+    if [[ "$patch_result" == "changed" ]]; then
+        warn "Removed invalid gateway.bind from openclaw.json to prevent config corruption"
+    fi
+}
+
+run_doctor_and_patch_bind() {
+    local doctor_out
+    log "🩺 Running openclaw doctor..."
+    doctor_out="$(openclaw doctor 2>&1 || true)"
+
+    if printf "%s" "$doctor_out" | grep -q "gateway.bind: Invalid input"; then
+        warn "Detected invalid gateway.bind from doctor output; patching config automatically"
+        remove_invalid_gateway_bind
+        log "🩺 Re-running openclaw doctor --fix after patch..."
+        if openclaw doctor --fix; then
+            log "✅ openclaw doctor --fix completed after gateway.bind patch"
+        else
+            warn "openclaw doctor --fix reported issues after patch (continuing)"
+        fi
     else
-        warn "openclaw doctor --fix reported issues (continuing)"
+        if openclaw doctor --fix; then
+            log "✅ openclaw doctor --fix completed"
+        else
+            warn "openclaw doctor --fix reported issues (continuing)"
+        fi
     fi
 }
 
@@ -422,6 +465,7 @@ main() {
     install_openclaw
     setup_workspace
     configure_openclaw
+    remove_invalid_gateway_bind
 
     if [[ "$OS" == "macos" ]]; then
         create_launchd_agent
@@ -435,7 +479,7 @@ main() {
     create_shortcuts
     final_setup_instructions
     log "🎉 Installation completed successfully!"
-    run_doctor_fix
+    run_doctor_and_patch_bind
 }
 
 main "$@"
