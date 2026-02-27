@@ -2,6 +2,7 @@
 # Run from any PowerShell window on a fresh machine.
 
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+Write-Host "[INFO] Process ExecutionPolicy: $(Get-ExecutionPolicy -Scope Process)" -ForegroundColor Cyan
 $ErrorActionPreference = 'Stop'
 
 $RepoUrl = 'https://github.com/KingJostle/openclaw-work-deployment.git'

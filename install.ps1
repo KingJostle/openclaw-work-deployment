@@ -2,6 +2,7 @@
 # Safe to run from Windows PowerShell 5.1 or PowerShell 7+
 
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+Write-Host "[INFO] Process ExecutionPolicy: $(Get-ExecutionPolicy -Scope Process)" -ForegroundColor Cyan
 $ErrorActionPreference = "Stop"
 
 # Configuration
