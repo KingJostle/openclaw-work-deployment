@@ -24,6 +24,7 @@ This bootstrap script handles all known failure points end-to-end:
 - installs **Git** if missing
 - clones/updates the repo
 - runs `install.ps1` (which installs Node.js/npm/OpenClaw, refreshes PATH, and configures startup)
+- runs post-install `openclaw doctor` validation and auto-removes invalid `gateway.bind` if detected
 
 ### Windows (manual repo flow)
 ```powershell
@@ -42,6 +43,8 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 - ✅ **OpenClaw** (latest version, globally installed)
 - ✅ **Auto-start service** (launchd / Task Scheduler / systemd)
 - ✅ **Work workspace** (`~/.openclaw/workspace`)
+- ✅ **Post-install health check** (`openclaw doctor --fix`)
+- ✅ **Automatic config repair** for invalid `gateway.bind` if detected
 
 ### Platform-Specific
 | Feature | macOS | Windows | Linux |
@@ -251,6 +254,17 @@ ss -tulpn | grep :18789  # Linux
 nano ~/.openclaw/openclaw.json
 # Change port, then restart
 ```
+
+### Known Config Issue: `gateway.bind: Invalid input`
+Recent OpenClaw versions reject `gateway.bind` in `~/.openclaw/openclaw.json`.
+
+This repo now auto-fixes that during install, but if you hit it manually:
+
+```bash
+openclaw doctor --fix
+```
+
+If it still appears, remove `gateway.bind` from `~/.openclaw/openclaw.json` and rerun doctor.
 
 ## 🔄 Updates & Maintenance
 
