@@ -1,5 +1,5 @@
 # OpenClaw Environment - Turnkey Installation for Windows
-# Run in PowerShell (as Administrator recommended for scheduled task)
+# Safe to run from Windows PowerShell 5.1 or PowerShell 7+
 
 $ErrorActionPreference = "Stop"
 
@@ -10,20 +10,19 @@ $WORKSPACE_DIR = "$WORK_HOME\.openclaw\workspace"
 $CONFIG_DIR = "$WORK_HOME\.openclaw"
 $INSTALL_LOG = "$WORK_HOME\openclaw-install.log"
 
+function Write-Step($msg) { Write-Host "[STEP] $msg" -ForegroundColor Cyan }
 function Log($msg) {
     $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $line = "[$ts] $msg"
     Write-Host $line -ForegroundColor Green
     Add-Content -Path $INSTALL_LOG -Value $line
 }
-
 function Warn($msg) {
     $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $line = "[$ts] WARNING: $msg"
     Write-Host $line -ForegroundColor Yellow
     Add-Content -Path $INSTALL_LOG -Value $line
 }
-
 function Err($msg) {
     $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $line = "[$ts] ERROR: $msg"
@@ -32,52 +31,112 @@ function Err($msg) {
     exit 1
 }
 
-# ── Node.js ─────────────────────────────────────────────────────────
+function Refresh-Path {
+    $machine = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+    $user = [System.Environment]::GetEnvironmentVariable("Path", "User")
+    $env:Path = "$machine;$user"
+}
 
-function Install-NodeJS {
-    Log "🔧 Checking Node.js..."
+function Ensure-Winget {
+    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+        Err "winget is required but was not found. Install App Installer from Microsoft Store, then re-run."
+    }
+}
+
+function Ensure-PowerShell7 {
+    if ($PSVersionTable.PSVersion.Major -ge 7) {
+        Log "✅ Running on PowerShell $($PSVersionTable.PSVersion)"
+        return
+    }
+
+    Warn "Detected Windows PowerShell $($PSVersionTable.PSVersion). Relaunching in PowerShell 7..."
+    Ensure-Winget
+
+    $pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
+    if (-not $pwsh) {
+        Write-Step "Installing PowerShell 7 via winget"
+        & winget install -e --id Microsoft.PowerShell --accept-package-agreements --accept-source-agreements
+        if ($LASTEXITCODE -ne 0) { Err "Failed to install PowerShell 7 via winget." }
+        Refresh-Path
+        $pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
+    }
+
+    if (-not $pwsh) { Err "PowerShell 7 install completed but pwsh.exe is still not on PATH." }
+
+    $scriptPath = $MyInvocation.MyCommand.Path
+    if (-not $scriptPath) { Err "Could not determine script path for PowerShell 7 relaunch." }
+
+    & $pwsh.Source -NoProfile -ExecutionPolicy Bypass -File $scriptPath
+    exit $LASTEXITCODE
+}
+
+function Ensure-ExecutionPolicy {
+    Write-Step "Setting execution policy for current user"
+    Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
+    Log "✅ Execution policy set to RemoteSigned (CurrentUser)"
+}
+
+# ── Git + Node.js dependencies ─────────────────────────────────────
+
+function Ensure-Git {
+    Write-Step "Checking Git"
+    if (Get-Command git -ErrorAction SilentlyContinue) {
+        Log "✅ Git installed: $(& git --version)"
+        return
+    }
+
+    Ensure-Winget
+    Warn "Git not found. Installing via winget..."
+    & winget install -e --id Git.Git --accept-package-agreements --accept-source-agreements
+    if ($LASTEXITCODE -ne 0) { Err "Git installation failed." }
+    Refresh-Path
+
+    if (Get-Command git -ErrorAction SilentlyContinue) {
+        Log "✅ Git installed: $(& git --version)"
+    } else {
+        Err "Git install appears complete, but git is still unavailable in PATH. Open a new terminal and retry."
+    }
+}
+
+function Ensure-NodeJS {
+    Write-Step "Checking Node.js + npm"
 
     $node = Get-Command node -ErrorAction SilentlyContinue
-    if ($node) {
+    $npm = Get-Command npm -ErrorAction SilentlyContinue
+
+    if ($node -and $npm) {
         $ver = & node --version
         Log "Node.js already installed: $ver"
-        # Check if version is 18+
         if ($ver -match 'v(\d+)' -and [int]$Matches[1] -ge 18) {
             Log "✅ Node.js version is sufficient"
             return
         }
-        Warn "Node.js version may be too old, attempting upgrade"
-    }
-
-    # Try winget first, fall back to direct download
-    $winget = Get-Command winget -ErrorAction SilentlyContinue
-    if ($winget) {
-        Log "Installing Node.js via winget..."
-        & winget install OpenJS.NodeJS.LTS --accept-package-agreements --accept-source-agreements
+        Warn "Node.js version may be too old. Upgrading via winget..."
     } else {
-        Log "Installing Node.js via direct download..."
-        $installerUrl = "https://nodejs.org/dist/v22.12.0/node-v22.12.0-x64.msi"
-        $installerPath = "$env:TEMP\nodejs-installer.msi"
-        Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath
-        Start-Process msiexec.exe -ArgumentList "/i `"$installerPath`" /qn" -Wait
-        Remove-Item $installerPath -ErrorAction SilentlyContinue
+        Warn "Node.js/npm not found. Installing via winget..."
     }
 
-    # Refresh PATH
-    $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+    Ensure-Winget
+    & winget install -e --id OpenJS.NodeJS --accept-package-agreements --accept-source-agreements
+    if ($LASTEXITCODE -ne 0) { Err "Node.js installation failed." }
 
-    $ver = & node --version
-    $npmVer = & npm --version
-    Log "✅ Node.js installed: $ver"
-    Log "✅ npm installed: $npmVer"
+    Refresh-Path
+
+    if (-not (Get-Command node -ErrorAction SilentlyContinue)) { Err "node.exe still not found after install." }
+    if (-not (Get-Command npm -ErrorAction SilentlyContinue)) { Err "npm.cmd still not found after install." }
+
+    Log "✅ Node.js installed: $(& node --version)"
+    Log "✅ npm installed: $(& npm --version)"
 }
 
 # ── OpenClaw ────────────────────────────────────────────────────────
 
 function Install-OpenClaw {
-    Log "🦞 Installing OpenClaw..."
-
+    Write-Step "Installing OpenClaw"
     & npm install -g openclaw
+    if ($LASTEXITCODE -ne 0) { Err "npm failed to install openclaw globally." }
+
+    Refresh-Path
 
     $oc = Get-Command openclaw -ErrorAction SilentlyContinue
     if ($oc) {
@@ -86,18 +145,14 @@ function Install-OpenClaw {
         if (-not $ver) { $ver = "unknown" }
         Log "✅ OpenClaw installed: $ver"
     } else {
-        # Refresh PATH and retry
-        $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
-        $oc = Get-Command openclaw -ErrorAction SilentlyContinue
-        if (-not $oc) { Err "OpenClaw installation failed. Ensure npm global bin is in PATH." }
-        Log "✅ OpenClaw installed"
+        Err "OpenClaw installation failed. Ensure npm global bin is in PATH."
     }
 }
 
 # ── Workspace ───────────────────────────────────────────────────────
 
 function Setup-Workspace {
-    Log "📁 Setting up work workspace..."
+    Write-Step "Setting up workspace"
 
     New-Item -ItemType Directory -Path "$WORKSPACE_DIR\memory" -Force | Out-Null
     New-Item -ItemType Directory -Path "$WORKSPACE_DIR\scripts" -Force | Out-Null
@@ -107,7 +162,6 @@ function Setup-Workspace {
     if (-not $scriptDir) { $scriptDir = $PSScriptRoot }
     if (-not $scriptDir) { $scriptDir = Get-Location }
 
-    # Copy template files
     $coreFiles = @("AGENTS.md", "SOUL.md", "USER.md", "IDENTITY.md", "TOOLS.md", "MEMORY.md", "HEARTBEAT.md", "BOOTSTRAP.md")
     foreach ($file in $coreFiles) {
         $src = Join-Path $scriptDir $file
@@ -117,21 +171,18 @@ function Setup-Workspace {
         }
     }
 
-    # Memory files
     $memDir = Join-Path $scriptDir "memory"
     if (Test-Path $memDir) {
         Copy-Item "$memDir\*" -Destination "$WORKSPACE_DIR\memory\" -Force
         Log "  ✅ Rate limit monitoring system"
     }
 
-    # Scripts
     $scriptsDir = Join-Path $scriptDir "scripts"
     if (Test-Path $scriptsDir) {
         Copy-Item "$scriptsDir\*" -Destination "$WORKSPACE_DIR\scripts\" -Force
         Log "  ✅ Scripts and utilities"
     }
 
-    # Documentation
     foreach ($doc in @("README.md", "SETUP-GUIDE.md", "TRANSFER-SUMMARY.md")) {
         $src = Join-Path $scriptDir $doc
         if (Test-Path $src) {
@@ -145,7 +196,7 @@ function Setup-Workspace {
 # ── Config ──────────────────────────────────────────────────────────
 
 function Configure-OpenClaw {
-    Log "⚙️  Configuring OpenClaw..."
+    Write-Step "Writing OpenClaw config"
 
     New-Item -ItemType Directory -Path $CONFIG_DIR -Force | Out-Null
 
@@ -177,7 +228,7 @@ function Configure-OpenClaw {
 # ── Scheduled Task (auto-start) ────────────────────────────────────
 
 function Create-ScheduledTask {
-    Log "🔄 Creating scheduled task for auto-start..."
+    Write-Step "Creating scheduled task"
 
     $openclaw = (Get-Command openclaw -ErrorAction SilentlyContinue).Source
     $node = (Get-Command node -ErrorAction SilentlyContinue).Source
@@ -189,7 +240,6 @@ function Create-ScheduledTask {
 
     $taskName = "OpenClaw"
 
-    # Remove existing task if present
     Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
 
     $action = New-ScheduledTaskAction `
@@ -206,22 +256,27 @@ function Create-ScheduledTask {
         -RestartInterval (New-TimeSpan -Minutes 1) `
         -ExecutionTimeLimit (New-TimeSpan -Days 365)
 
-    Register-ScheduledTask `
-        -TaskName $taskName `
-        -Action $action `
-        -Trigger $trigger `
-        -Settings $settings `
-        -Description "OpenClaw Environment" `
-        -RunLevel Highest `
-        -ErrorAction Stop | Out-Null
+    try {
+        Register-ScheduledTask `
+            -TaskName $taskName `
+            -Action $action `
+            -Trigger $trigger `
+            -Settings $settings `
+            -Description "OpenClaw Environment" `
+            -RunLevel Highest `
+            -ErrorAction Stop | Out-Null
 
-    Log "✅ Scheduled task '$taskName' created (starts at login)"
+        Log "✅ Scheduled task '$taskName' created (starts at login)"
+    } catch {
+        Warn "Could not register scheduled task (usually requires Administrator). Continuing without auto-start."
+        Warn "Details: $($_.Exception.Message)"
+    }
 }
 
 # ── Firewall ────────────────────────────────────────────────────────
 
 function Setup-Firewall {
-    Log "🔥 Configuring firewall..."
+    Write-Step "Configuring firewall"
 
     $ruleName = "OpenClaw (Port $OPENCLAW_PORT)"
     $existing = Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue
@@ -246,7 +301,7 @@ function Setup-Firewall {
 # ── Start Service ───────────────────────────────────────────────────
 
 function Start-OpenClaw {
-    Log "🚀 Starting OpenClaw..."
+    Write-Step "Starting OpenClaw"
 
     $taskName = "OpenClaw"
     try {
@@ -254,22 +309,27 @@ function Start-OpenClaw {
         Start-Sleep -Seconds 3
 
         try {
-            $response = Invoke-WebRequest -Uri "http://localhost:$OPENCLAW_PORT" -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
+            $null = Invoke-WebRequest -Uri "http://localhost:$OPENCLAW_PORT" -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
             Log "✅ OpenClaw is running at http://localhost:$OPENCLAW_PORT"
         } catch {
             Warn "Service may still be starting. Check http://localhost:$OPENCLAW_PORT in a moment."
         }
     } catch {
-        Warn "Could not start scheduled task. Try: Start-ScheduledTask -TaskName '$taskName'"
+        Warn "Could not start scheduled task. Trying direct launch..."
+        try {
+            Start-Process -FilePath "node" -ArgumentList "`"$((Get-Command openclaw).Source)`" gateway --config=`"$CONFIG_DIR\openclaw.json`"" -WorkingDirectory $WORKSPACE_DIR -WindowStyle Hidden
+            Log "✅ Started OpenClaw directly (without scheduled task)."
+        } catch {
+            Warn "Direct launch failed. Run manually: openclaw gateway --config=`"$CONFIG_DIR\openclaw.json`""
+        }
     }
 }
 
 # ── Shortcuts ───────────────────────────────────────────────────────
 
 function Create-Shortcuts {
-    Log "🔗 Creating convenience shortcuts..."
+    Write-Step "Creating PowerShell shortcuts"
 
-    # Add PowerShell profile aliases
     $profileDir = Split-Path $PROFILE -Parent
     if (-not (Test-Path $profileDir)) {
         New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
@@ -334,7 +394,7 @@ function Show-Instructions {
     Write-Host "   openclaw-status     # Check if running"
     Write-Host "   openclaw-restart    # Restart service"
     Write-Host "   openclaw-stop       # Stop service"
-    Write-Host "   openclaw-ws            # Go to workspace"
+    Write-Host "   openclaw-ws         # Go to workspace"
     Write-Host ""
     Write-Host "📝 Installation log: $INSTALL_LOG" -ForegroundColor Cyan
     Write-Host ""
@@ -346,7 +406,11 @@ function Main {
     Log "🦞 Starting OpenClaw Installation (Windows)"
     Log "📊 Installation log: $INSTALL_LOG"
 
-    Install-NodeJS
+    Ensure-PowerShell7
+    Ensure-ExecutionPolicy
+    Ensure-Winget
+    Ensure-Git
+    Ensure-NodeJS
     Install-OpenClaw
     Setup-Workspace
     Configure-OpenClaw

@@ -12,7 +12,18 @@ chmod +x install.sh
 ./install.sh
 ```
 
-### Windows (PowerShell as Administrator)
+### Windows Quick Start (one command, fresh machine safe)
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; irm https://raw.githubusercontent.com/KingJostle/openclaw-work-deployment/main/windows-install.ps1 | iex
+```
+
+This bootstrap script handles all known failure points end-to-end:
+- installs **PowerShell 7** (and relaunches automatically) if you're on Windows PowerShell 5.1
+- installs **Git** if missing
+- clones/updates the repo
+- runs `install.ps1` (which installs Node.js/npm/OpenClaw, refreshes PATH, and configures startup)
+
+### Windows (manual repo flow)
 ```powershell
 git clone https://github.com/KingJostle/openclaw-work-deployment.git
 cd openclaw-work-deployment

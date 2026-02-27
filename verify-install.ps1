@@ -9,10 +9,36 @@ function Warning($msg) { Write-Host "⚠️  $msg" -ForegroundColor Yellow }
 function Err($msg)     { Write-Host "❌ $msg" -ForegroundColor Red; $script:Errors++ }
 function Info($msg)    { Write-Host "ℹ️  $msg" -ForegroundColor Cyan }
 
+Info "Checking PowerShell version..."
+if ($PSVersionTable.PSVersion.Major -ge 7) {
+    Success "PowerShell 7+: $($PSVersionTable.PSVersion)"
+} else {
+    Warning "Running Windows PowerShell $($PSVersionTable.PSVersion). PowerShell 7 is recommended."
+}
+
+Info "Checking winget..."
+if (Get-Command winget -ErrorAction SilentlyContinue) {
+    Success "winget available"
+} else {
+    Warning "winget not found (required for auto-installs/updates)"
+}
+
+Info "Checking Git..."
+if (Get-Command git -ErrorAction SilentlyContinue) {
+    Success "Git installed: $(git --version)"
+} else {
+    Warning "Git not found"
+}
+
 Info "Checking Node.js..."
 if (Get-Command node -ErrorAction SilentlyContinue) {
     Success "Node.js installed: $(node --version)"
 } else { Err "Node.js not found" }
+
+Info "Checking npm..."
+if (Get-Command npm -ErrorAction SilentlyContinue) {
+    Success "npm installed: $(npm --version)"
+} else { Err "npm not found" }
 
 Info "Checking OpenClaw..."
 if (Get-Command openclaw -ErrorAction SilentlyContinue) {
@@ -24,7 +50,7 @@ Info "Checking scheduled task..."
 $task = Get-ScheduledTask -TaskName "OpenClaw" -ErrorAction SilentlyContinue
 if ($task) {
     Success "Scheduled task exists (State: $($task.State))"
-} else { Err "Scheduled task 'OpenClaw' not found" }
+} else { Warning "Scheduled task 'OpenClaw' not found (auto-start may be disabled)" }
 
 Info "Checking port $OPENCLAW_PORT..."
 try {
@@ -47,9 +73,9 @@ if (Test-Path $cfg) { Success "Config file exists" } else { Err "Config missing:
 Write-Host ""
 Write-Host "=== VERIFICATION SUMMARY (Windows) ===" -ForegroundColor Cyan
 if ($script:Errors -eq 0) {
-    Success "All checks passed! ✨"
+    Success "All critical checks passed! ✨"
     Write-Host "`nNext: http://localhost:$OPENCLAW_PORT" -ForegroundColor Green
 } else {
-    Err "Found $($script:Errors) issues"
-    Write-Host "`nTry re-running install.ps1 as Administrator" -ForegroundColor Yellow
+    Err "Found $($script:Errors) critical issues"
+    Write-Host "`nTry re-running install.ps1 (or windows-install.ps1) as Administrator" -ForegroundColor Yellow
 }
