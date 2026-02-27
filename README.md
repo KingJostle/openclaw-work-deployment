@@ -1,8 +1,15 @@
 # OpenClaw Work Environment - Turnkey Deployment
 
-**One-command installation** of OpenClaw with proven professional patterns for **macOS, Windows, and Ubuntu/Debian** work environments.
+**One-command installation** of OpenClaw with proven professional patterns for **macOS, Ubuntu, and Windows** work environments.
 
 ## 🚀 Quick Start
+
+### Windows Quick Start (single command)
+```powershell
+irm https://raw.githubusercontent.com/KingJostle/openclaw-work-deployment/main/windows-install.ps1 | iex
+```
+
+> Requires `winget` (Windows 10 version 1709+ with App Installer, or Windows 11).
 
 ### macOS / Linux
 ```bash
@@ -10,11 +17,6 @@ git clone https://github.com/KingJostle/openclaw-work-deployment.git
 cd openclaw-work-deployment
 chmod +x install.sh
 ./install.sh
-```
-
-### Windows Quick Start (one command, fresh machine safe)
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; irm https://raw.githubusercontent.com/KingJostle/openclaw-work-deployment/main/windows-install.ps1 | iex
 ```
 
 This bootstrap script handles all known failure points end-to-end:

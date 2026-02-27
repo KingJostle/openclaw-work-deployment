@@ -1,130 +1,211 @@
 # OpenClaw Windows Bootstrap Installer
-# One-file bootstrap for fresh machines (handles Git + PowerShell 7 + clone + install)
+# Run from any PowerShell window on a fresh machine.
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = 'Stop'
 
-$RepoUrl = "https://github.com/KingJostle/openclaw-work-deployment.git"
-$TargetDir = Join-Path $env:USERPROFILE "openclaw-work-deployment"
+$RepoUrl = 'https://github.com/KingJostle/openclaw-work-deployment.git'
+$TargetDir = Join-Path $env:USERPROFILE 'openclaw-work-deployment'
 
-function Step($m) { Write-Host "[STEP] $m" -ForegroundColor Cyan }
-function Ok($m) { Write-Host "[OK]   $m" -ForegroundColor Green }
-function Warn($m) { Write-Host "[WARN] $m" -ForegroundColor Yellow }
-function Die($m) { Write-Host "[ERR]  $m" -ForegroundColor Red; exit 1 }
+$script:Summary = [ordered]@{}
+
+function Write-Step($m) { Write-Host "[STEP] $m" -ForegroundColor Cyan }
+function Write-Ok($m) { Write-Host "[OK]   $m" -ForegroundColor Green }
+function Write-Warn($m) { Write-Host "[WARN] $m" -ForegroundColor Yellow }
+function Write-Err($m) { Write-Host "[ERR]  $m" -ForegroundColor Red }
+
+function Set-Summary($k, $v) { $script:Summary[$k] = $v }
 
 function Refresh-Path {
-    $machine = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
-    $user = [System.Environment]::GetEnvironmentVariable("Path", "User")
-    $env:Path = "$machine;$user"
+  $machine = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+  $user = [Environment]::GetEnvironmentVariable('Path', 'User')
+  $env:Path = "$machine;$user"
 }
 
 function Ensure-Winget {
-    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-        Die "winget is required but missing. Install App Installer from Microsoft Store and retry."
-    }
+  if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+    throw 'winget is required but not found. Install App Installer from the Microsoft Store, then retry.'
+  }
 }
 
-function Ensure-PowerShell7 {
-    if ($PSVersionTable.PSVersion.Major -ge 7) {
-        Ok "Running on PowerShell $($PSVersionTable.PSVersion)"
-        return
-    }
+function Ensure-Admin {
+  Write-Step 'Checking Administrator privileges'
+  $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
-    Warn "Detected Windows PowerShell $($PSVersionTable.PSVersion). Switching to PowerShell 7..."
-    Ensure-Winget
+  if ($isAdmin) {
+    Write-Ok 'Running elevated as Administrator'
+    Set-Summary 'Elevation' 'OK (already elevated)'
+    return
+  }
 
-    $pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
-    if (-not $pwsh) {
-        Step "Installing PowerShell 7"
-        & winget install -e --id Microsoft.PowerShell --accept-package-agreements --accept-source-agreements
-        if ($LASTEXITCODE -ne 0) { Die "Failed to install PowerShell 7 via winget." }
-        Refresh-Path
-        $pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
-    }
+  Write-Warn 'Not elevated. Relaunching this script as Administrator...'
+  $selfPath = $MyInvocation.MyCommand.Path
+  if (-not $selfPath) {
+    throw 'Cannot relaunch elevated because script path is unavailable.'
+  }
 
-    if (-not $pwsh) { Die "PowerShell 7 install finished but pwsh.exe is not available in PATH." }
-
-    $self = $MyInvocation.MyCommand.Path
-    if (-not $self) { Die "Cannot determine bootstrap script path for relaunch." }
-
-    & $pwsh.Source -NoProfile -ExecutionPolicy Bypass -File $self
-    exit $LASTEXITCODE
+  Start-Process -FilePath 'powershell.exe' -Verb RunAs -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"{0}"' -f $selfPath))
+  Set-Summary 'Elevation' 'Relaunched with UAC prompt'
+  exit 0
 }
 
-function Ensure-ExecutionPolicy {
-    Step "Setting execution policy"
-    Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
-    Ok "Execution policy set (CurrentUser: RemoteSigned)"
+function Set-ExecutionPolicySafe {
+  Write-Step 'Setting ExecutionPolicy (CurrentUser: RemoteSigned)'
+  Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
+  Write-Ok 'ExecutionPolicy updated'
+  Set-Summary 'ExecutionPolicy' 'OK'
 }
 
 function Ensure-Git {
-    Step "Checking Git"
-    if (Get-Command git -ErrorAction SilentlyContinue) {
-        Ok "Git found: $(& git --version)"
-        return
-    }
+  Write-Step 'Checking Git'
+  if (Get-Command git -ErrorAction SilentlyContinue) {
+    Write-Ok "Git present: $(& git --version)"
+    Set-Summary 'Git' 'OK (already installed)'
+    return
+  }
 
-    Ensure-Winget
-    Warn "Git not found. Installing via winget..."
-    & winget install -e --id Git.Git --accept-package-agreements --accept-source-agreements
-    if ($LASTEXITCODE -ne 0) { Die "Failed to install Git via winget." }
+  Ensure-Winget
+  Write-Warn 'Git missing. Installing via winget...'
+  & winget install --id Git.Git -e --accept-package-agreements --accept-source-agreements
+  if ($LASTEXITCODE -ne 0) { throw 'Failed to install Git via winget.' }
 
-    Refresh-Path
-    if (Get-Command git -ErrorAction SilentlyContinue) {
-        Ok "Git installed: $(& git --version)"
-    } else {
-        Die "Git installation completed but git is still unavailable in PATH."
-    }
+  Refresh-Path
+  if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+    throw 'Git install reported success but git is not in PATH.'
+  }
+
+  Write-Ok "Git installed: $(& git --version)"
+  Set-Summary 'Git' 'OK (installed)'
 }
 
-function Clone-Or-UpdateRepo {
-    Step "Preparing repository"
+function Ensure-Pwsh {
+  Write-Step 'Checking PowerShell 7 (pwsh.exe)'
+  if (Get-Command pwsh -ErrorAction SilentlyContinue) {
+    Write-Ok "pwsh present: $(& pwsh -NoLogo -NoProfile -Command '$PSVersionTable.PSVersion.ToString()')"
+    Set-Summary 'PowerShell 7' 'OK (already installed)'
+    return
+  }
 
-    if (Test-Path (Join-Path $TargetDir ".git")) {
-        Ok "Repo already exists at $TargetDir. Pulling latest changes..."
-        Push-Location $TargetDir
-        & git pull --ff-only
-        if ($LASTEXITCODE -ne 0) {
-            Pop-Location
-            Die "git pull failed in existing repo."
-        }
-        Pop-Location
-        return
-    }
+  Ensure-Winget
+  Write-Warn 'PowerShell 7 missing. Installing via winget...'
+  & winget install --id Microsoft.PowerShell -e --accept-package-agreements --accept-source-agreements
+  if ($LASTEXITCODE -ne 0) { throw 'Failed to install PowerShell 7 via winget.' }
 
-    if (Test-Path $TargetDir) {
-        Warn "Directory exists but is not a git repo: $TargetDir"
-        $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-        $backup = "$TargetDir.backup.$timestamp"
-        Move-Item -Path $TargetDir -Destination $backup -Force
-        Warn "Moved existing directory to: $backup"
-    }
+  Refresh-Path
+  if (-not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
+    throw 'PowerShell 7 install reported success but pwsh.exe is not in PATH.'
+  }
 
-    & git clone $RepoUrl $TargetDir
-    if ($LASTEXITCODE -ne 0) { Die "Failed to clone $RepoUrl" }
-    Ok "Repository cloned to $TargetDir"
+  Write-Ok 'PowerShell 7 installed'
+  Set-Summary 'PowerShell 7' 'OK (installed)'
 }
 
-function Run-MainInstaller {
-    Step "Launching install.ps1"
+function Ensure-Node {
+  Write-Step 'Checking Node.js'
+  if (Get-Command node -ErrorAction SilentlyContinue) {
+    Write-Ok "Node.js present: $(& node --version)"
+    Set-Summary 'Node.js' 'OK (already installed)'
+    return
+  }
 
-    $installScript = Join-Path $TargetDir "install.ps1"
-    if (-not (Test-Path $installScript)) {
-        Die "install.ps1 not found at $installScript"
-    }
+  Ensure-Winget
+  Write-Warn 'Node.js missing. Installing via winget...'
+  & winget install -e --id OpenJS.NodeJS --accept-package-agreements --accept-source-agreements
+  if ($LASTEXITCODE -ne 0) { throw 'Failed to install Node.js via winget.' }
 
-    & pwsh -NoProfile -ExecutionPolicy Bypass -File $installScript
-    if ($LASTEXITCODE -ne 0) { Die "install.ps1 failed with exit code $LASTEXITCODE" }
+  Refresh-Path
+  if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+    throw 'Node.js install reported success but node is not in PATH.'
+  }
 
-    Ok "Install completed"
+  Write-Ok "Node.js installed: $(& node --version)"
+  Set-Summary 'Node.js' 'OK (installed)'
 }
 
-Step "Starting OpenClaw Windows bootstrap install"
-Ensure-PowerShell7
-Ensure-ExecutionPolicy
-Ensure-Winget
-Ensure-Git
-Clone-Or-UpdateRepo
-Run-MainInstaller
+function Ensure-OpenClaw {
+  Write-Step 'Installing OpenClaw globally via npm'
+  & npm install -g openclaw
+  if ($LASTEXITCODE -ne 0) { throw 'npm install -g openclaw failed.' }
 
-Write-Host "" 
-Write-Host "Done. OpenClaw should be available at http://localhost:18789" -ForegroundColor Green
+  Refresh-Path
+  if (-not (Get-Command openclaw -ErrorAction SilentlyContinue)) {
+    throw 'OpenClaw installed but command not available in PATH.'
+  }
+
+  Write-Ok 'OpenClaw installed'
+  Set-Summary 'OpenClaw' 'OK'
+}
+
+function Ensure-Repo {
+  Write-Step 'Preparing repository'
+
+  if (Test-Path (Join-Path $TargetDir '.git')) {
+    Write-Ok "Repo already present at $TargetDir"
+    Push-Location $TargetDir
+    & git pull --ff-only
+    if ($LASTEXITCODE -ne 0) {
+      Pop-Location
+      throw 'git pull failed in existing repository.'
+    }
+    Pop-Location
+    Set-Summary 'Repository' 'OK (updated)'
+    return
+  }
+
+  if (Test-Path $TargetDir) {
+    $backup = "$TargetDir.backup.$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+    Move-Item -Path $TargetDir -Destination $backup -Force
+    Write-Warn "Existing non-repo directory moved to: $backup"
+  }
+
+  & git clone $RepoUrl $TargetDir
+  if ($LASTEXITCODE -ne 0) { throw 'Failed to clone repository.' }
+
+  Write-Ok "Repository cloned to $TargetDir"
+  Set-Summary 'Repository' 'OK (cloned)'
+}
+
+function Run-InstallScript {
+  Write-Step 'Running install.ps1 via pwsh.exe'
+  $installScript = Join-Path $TargetDir 'install.ps1'
+  if (-not (Test-Path $installScript)) {
+    throw "install.ps1 not found at $installScript"
+  }
+
+  & pwsh.exe -NoProfile -ExecutionPolicy Bypass -File $installScript
+  if ($LASTEXITCODE -ne 0) {
+    throw "install.ps1 failed (exit code: $LASTEXITCODE)"
+  }
+
+  Write-Ok 'install.ps1 completed'
+  Set-Summary 'Main install' 'OK'
+}
+
+function Print-Summary {
+  Write-Host ''
+  Write-Host '========== Windows Install Summary ==========' -ForegroundColor Cyan
+  foreach ($entry in $script:Summary.GetEnumerator()) {
+    Write-Host ('- {0}: {1}' -f $entry.Key, $entry.Value) -ForegroundColor Green
+  }
+  Write-Host ''
+  Write-Host 'If Scheduled Task setup was skipped due to permissions, rerun install.ps1 in an elevated shell later.' -ForegroundColor Yellow
+  Write-Host 'OpenClaw UI: http://localhost:18789' -ForegroundColor Cyan
+}
+
+try {
+  Write-Host 'OpenClaw Windows bootstrap starting...' -ForegroundColor Cyan
+  Ensure-Admin
+  Set-ExecutionPolicySafe
+  Ensure-Git
+  Ensure-Pwsh
+  Ensure-Node
+  Refresh-Path
+  Ensure-OpenClaw
+  Ensure-Repo
+  Set-Location $TargetDir
+  Run-InstallScript
+  Print-Summary
+} catch {
+  Write-Err $_.Exception.Message
+  Write-Host 'Install stopped. Fix the issue above and rerun this script.' -ForegroundColor Yellow
+  exit 1
+}
