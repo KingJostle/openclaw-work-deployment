@@ -165,12 +165,19 @@ configure_openclaw() {
 {
   "gateway": {
     "port": $OPENCLAW_PORT,
-    "host": "0.0.0.0"
+    "bind": "0.0.0.0",
+    "controlUi": {
+      "dangerouslyAllowHostHeaderOriginFallback": true
+    }
   },
   "agents": {
-    "main": {
-      "path": "$WORKSPACE_DIR"
-    }
+    "list": [
+      {
+        "id": "main",
+        "default": true,
+        "workspace": "$WORKSPACE_DIR"
+      }
+    ]
   }
 }
 EOF
