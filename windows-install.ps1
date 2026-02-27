@@ -138,6 +138,8 @@ function Ensure-Pwsh {
   $pwshPath = Get-PwshPath
   if ($pwshPath) {
     Write-Ok "pwsh present: $(& $pwshPath -NoLogo -NoProfile -Command '$PSVersionTable.PSVersion.ToString()')"
+    Write-Log 'INFO' "PowerShell 7 path resolved: $pwshPath"
+    Set-Summary 'PowerShell 7 Path' $pwshPath
     Set-Summary 'PowerShell 7' 'OK (already installed)'
     return
   }
@@ -158,6 +160,8 @@ function Ensure-Pwsh {
   }
 
   Write-Ok "PowerShell 7 available at: $pwshPath"
+  Write-Log 'INFO' "PowerShell 7 path resolved after winget: $pwshPath"
+  Set-Summary 'PowerShell 7 Path' $pwshPath
   Set-Summary 'PowerShell 7' 'OK (installed or already present)'
 }
 

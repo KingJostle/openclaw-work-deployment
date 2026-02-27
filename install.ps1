@@ -100,6 +100,11 @@ function Ensure-PowerShell7 {
     Ensure-Winget
 
     $pwshPath = Get-PwshPath
+    if ($pwshPath) {
+        Log "✅ PowerShell 7 resolved at: $pwshPath"
+        Set-Summary 'PowerShell 7 Path' $pwshPath
+    }
+
     if (-not $pwshPath) {
         Write-Step "Installing PowerShell 7 via winget"
         $wingetOutput = (& winget install -e --id Microsoft.PowerShell --accept-package-agreements --accept-source-agreements 2>&1 | Out-String)
@@ -114,6 +119,8 @@ function Ensure-PowerShell7 {
         if (Test-WingetSoftSuccess -Output $wingetOutput) {
             Warn "winget reported PowerShell as already installed or no upgrade needed; continuing."
         }
+        Log "✅ PowerShell 7 resolved after winget at: $pwshPath"
+        Set-Summary 'PowerShell 7 Path' $pwshPath
     }
 
     Set-Summary 'PowerShell 7' 'OK (installed/relaunching)'
